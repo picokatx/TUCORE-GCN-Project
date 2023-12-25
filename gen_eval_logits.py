@@ -494,12 +494,12 @@ def main():
     global_step = 0
 
     if args.resume:
-        model.load_state_dict(torch.load(os.path.join(args.output_dir, "model.pt")))
+        model.load_state_dict(torch.load(os.path.join(args.output_dir, "model_best.pt")))
 
     if args.do_eval:
         dev_set = TUCOREGCNDataset(src_file=args.data_dir, save_file=args.data_dir + "/dev_" + args.encoder_type + ".pkl", max_seq_length=args.max_seq_length, tokenizer=tokenizer, n_class=n_class, encoder_type=args.encoder_type)
         dev_loader = TUCOREGCNDataloader(dataset=dev_set, batch_size=args.eval_batch_size, shuffle=False, relation_num=n_class, max_length=args.max_seq_length)
-
+    '''
     if args.do_train:
         best_metric = 0
         logger.info("***** Running training *****")
@@ -648,7 +648,6 @@ def main():
         torch.save(model.state_dict(), os.path.join(args.output_dir, "model.pt"))
 
     model.load_state_dict(torch.load(os.path.join(args.output_dir, "model.pt")))
-
     '''
     if args.do_eval:
         if args.data_name == "DialogRE":
@@ -677,6 +676,6 @@ def main():
 
             get_logits4eval_ERC(model, dev_loader, os.path.join(args.output_dir, "logits_dev.txt"), os.path.join(args.output_dir, "dev_result.txt"), device, args.data_name)
             get_logits4eval_ERC(model, test_loader, os.path.join(args.output_dir, "logits_test.txt"), os.path.join(args.output_dir, "test_result.txt"), device, args.data_name)
-    '''
+
 if __name__ == "__main__":
     main()
