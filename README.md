@@ -1,0 +1,5 @@
+python run_classifier.py --do_train --encoder_type BERT  --data_dir datasets/DialogRE --data_name DialogRE   --vocab_file pre-trained_model/BERT/vocab.txt   --config_file pre-trained_model/BERT/bert_config.json   --init_checkpoint pre-trained_model/BERT/pytorch_model.bin   --max_seq_length 512   --train_batch_size 12   --learning_rate 3e-5   --num_train_epochs 1   --output_dir TUCOREGCN_BERT_DialogRE  --gradient_accumulation_steps 2
+
+rm TUCOREGCN_BERT_DialogRE/model_best.pt
+
+python evaluate.py --dev datasets/DialogRE/dev.json --test datasets/DialogRE/test.json --f1dev TUCOREGCN_BERT_DialogRE/logits_dev.txt --f1test TUCOREGCN_BERT_DialogRE/logits_test.txt --f1cdev TUCOREGCN_BERT_DialogRE/logits_devc.txt --f1ctest TUCOREGCN_BERT_DialogRE/logits_testc.txt --result_path TUCOREGCN_BERT_DialogRE/result.txt

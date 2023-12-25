@@ -1,0 +1,7 @@
+*.pt
+*.pkl
+*logits_dev.txt
+*logits_devc.txt
+*logits_test.txt
+*logits_testc.txt
+*pytorch_model.bin
