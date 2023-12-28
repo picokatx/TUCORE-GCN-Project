@@ -1,4 +1,4 @@
-def convert_examples_to_features_roberta(examples, max_seq_length, tokenizer):
+def convert_examples_to_features(examples, max_seq_length, tokenizer):
     """Loads a data file into a list of `InputBatch`s."""
 
     print("#examples", len(examples))
@@ -9,19 +9,19 @@ def convert_examples_to_features_roberta(examples, max_seq_length, tokenizer):
         tokens_b, tokens_b_speaker_ids = tokenize(example.text_b, tokenizer)
         tokens_c, tokens_c_speaker_ids = tokenize(example.text_c, tokenizer)
 
-        _truncate_seq_tuple(tokens_a, tokens_b, tokens_c, max_seq_length - 6, tokens_a_speaker_ids, tokens_b_speaker_ids, tokens_c_speaker_ids, tokens_a_mention_ids)
+        _truncate_seq_tuple(tokens_a, tokens_b, tokens_c, max_seq_length - 4, tokens_a_speaker_ids, tokens_b_speaker_ids, tokens_c_speaker_ids, tokens_a_mention_ids)
         tokens_b_mention_ids = [max(tokens_a_mention_ids) + 1 for _ in range(len(tokens_b))]
         tokens_c_mention_ids = [max(tokens_a_mention_ids) + 2 for _ in range(len(tokens_c))]
 
-        tokens_b = tokens_b + ['</s>', '</s>'] + tokens_c
-        tokens_b_speaker_ids = tokens_b_speaker_ids + [0, 0] + tokens_c_speaker_ids
-        tokens_b_mention_ids = tokens_b_mention_ids + [0, 0] + tokens_c_mention_ids
+        tokens_b = tokens_b + ["[SEP]"] + tokens_c # roberta
+        tokens_b_speaker_ids = tokens_b_speaker_ids + [0] + tokens_c_speaker_ids # roberta
+        tokens_b_mention_ids = tokens_b_mention_ids + [0] + tokens_c_mention_ids # roberta
 
         tokens = []
         segment_ids = []
         speaker_ids = []
         mention_ids = []
-        tokens.append('<s>')
+        tokens.append("[CLS]") # roberta
         segment_ids.append(0)
         speaker_ids.append(0)
         mention_ids.append(0)
@@ -30,11 +30,7 @@ def convert_examples_to_features_roberta(examples, max_seq_length, tokenizer):
             segment_ids.append(0)
         speaker_ids = speaker_ids + tokens_a_speaker_ids
         mention_ids = mention_ids + tokens_a_mention_ids
-        tokens.append('</s>')
-        segment_ids.append(0)
-        speaker_ids.append(0)
-        mention_ids.append(0)
-        tokens.append('</s>')
+        tokens.append("[SEP]") # roberta
         segment_ids.append(0)
         speaker_ids.append(0)
         mention_ids.append(0)
@@ -44,7 +40,7 @@ def convert_examples_to_features_roberta(examples, max_seq_length, tokenizer):
             segment_ids.append(1)
         speaker_ids = speaker_ids + tokens_b_speaker_ids
         mention_ids = mention_ids + tokens_b_mention_ids
-        tokens.append('</s>')
+        tokens.append("[SEP]") # roberta
         segment_ids.append(1)
         speaker_ids.append(0)
         mention_ids.append(0)
@@ -55,15 +51,9 @@ def convert_examples_to_features_roberta(examples, max_seq_length, tokenizer):
         # tokens are attended to.
         input_mask = [1] * len(input_ids)
 
-        assert len(input_ids) == len(input_mask)
-        assert len(input_mask) == len(segment_ids)
-        assert len(segment_ids) == len(speaker_ids)
-        assert len(speaker_ids) == len(mention_ids)
-        assert len(mention_ids) == len(input_ids)
-
         # Zero-pad up to the sequence length.
         while len(input_ids) < max_seq_length:
-            input_ids.append(1)
+            input_ids.append(0)
             input_mask.append(0)
             segment_ids.append(0)
             speaker_ids.append(0)
@@ -107,4 +97,3 @@ def convert_examples_to_features_roberta(examples, max_seq_length, tokenizer):
         features = features[:-1]
     print('#features', len(features))
     return features
-

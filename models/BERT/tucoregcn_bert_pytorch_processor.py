@@ -15,7 +15,6 @@
 
 """DialogRE: the first human-annotated dialogue-based relation extraction dataset"""
 
-
 import json
 import os
 from typing import List
@@ -24,7 +23,8 @@ import random
 from dataclasses import dataclass
 from datasets.utils.info_utils import VerificationMode
 from datasets.utils.download_manager import DownloadManager
-
+from models.BERT.speaker_tokens import SPEAKER_TOKENS, SpeakerBertTokenizer
+from transformers.models.bert.tokenization_bert import BertTokenizer
 _CITATION = """\
 @inproceedings{yu2020dialogue,
   title={Dialogue-Based Relation Extraction},
@@ -151,16 +151,13 @@ class DialogRE(datasets.GeneratorBasedBuilder):
 		)
 	
 	#_get_examples_iterable_for_split
-	def _generate_examples(self, filepath, split):
-		n_class = 36
+	def _generate_examples(self, filepath, split, n_class=36, max_length=512, for_f1c=False):
 		def is_speaker(a):
 				a = a.split()
-				return len(a) == 2 and a[0] == "speaker" and a[1].isdigit()
+				return len(a) == 2 and a[0] == "Speaker" and a[1].isdigit()
 		def rename(dialog: List[str], relation: DialogRERelation):
-				soi = ["[speaker_x]", "[speaker_y]"] #speaker_of_interest
-				d = '\n'.join(dialog).lower()
-				relation.speaker_x = relation.speaker_x.lower()
-				relation.speaker_y = relation.speaker_y.lower()
+				soi = [SPEAKER_TOKENS.SPEAKER_X, SPEAKER_TOKENS.SPEAKER_Y] #speaker_of_interest
+				ret_dialog = []
 				a = []
 				if is_speaker(relation.speaker_x):
 					a += [relation.speaker_x]
@@ -173,39 +170,50 @@ class DialogRE(datasets.GeneratorBasedBuilder):
 				for i in range(len(a)):
 					if a[i] is None:
 						continue
-					d = d.replace(a[i] + ":", soi[i] + " :")
-					d = d.replace("speaker 1:", "[speaker_1]")
-					d = d.replace("speaker 2:", "[speaker_2]")
-					d = d.replace("speaker 3:", "[speaker_3]")
-					d = d.replace("speaker 4:", "[speaker_4]")
-					d = d.replace("speaker 5:", "[speaker_5]")
-					d = d.replace("speaker 6:", "[speaker_6]")
-					d = d.replace("speaker 7:", "[speaker_7]")
-					d = d.replace("speaker 8:", "[speaker_8]")
-					d = d.replace("speaker 9:", "[speaker_9]")
+					for d in dialog:
+						d = d.replace(a[i] + ":", soi[i])
+						d = d.replace("Speaker 1:", SPEAKER_TOKENS.SPEAKER_1)
+						d = d.replace("Speaker 2:", SPEAKER_TOKENS.SPEAKER_2)
+						d = d.replace("Speaker 3:", SPEAKER_TOKENS.SPEAKER_3)
+						d = d.replace("Speaker 4:", SPEAKER_TOKENS.SPEAKER_4)
+						d = d.replace("Speaker 5:", SPEAKER_TOKENS.SPEAKER_5)
+						d = d.replace("Speaker 6:", SPEAKER_TOKENS.SPEAKER_6)
+						d = d.replace("Speaker 7:", SPEAKER_TOKENS.SPEAKER_7)
+						d = d.replace("Speaker 8:", SPEAKER_TOKENS.SPEAKER_8)
+						d = d.replace("Speaker 9:", SPEAKER_TOKENS.SPEAKER_9)
+						ret_dialog.append(d)
 					if relation.speaker_x == a[i]:
 						relation.speaker_x = soi[i]
 					if relation.speaker_y == a[i]:
 						relation.speaker_y = soi[i]
-				return d, relation
+				return ret_dialog, relation
 		"""Yields examples."""
-		for_f1c = False
+		speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
 		with open(filepath, encoding="utf-8") as f:
 			dataset = json.load(f)
 			if split=="train" and not for_f1c:
 				random.shuffle(dataset)
 			for idx, entry in enumerate(dataset):
-				dialog = entry[0]
+				dialog_raw = entry[0]
 				relation_data = entry[1]
 				relations = [DialogRERelation.from_dialogRE(relation, n_class) for relation in relation_data]
 				for idx, relation in enumerate(relations):
 					if for_f1c:
-						for l in range(1, len(dialog)+1):
-							d, relation = rename(dialog[:l], relation)
+						for l in range(1, len(dialog_raw)+1):
+							dialog, relation = rename(dialog_raw[:l], relation)
 					else:
-						d, relation = rename(dialog, relation)
+						dialog, relation = rename(dialog_raw, relation)
+					count = 0
+					lim_dialog = []
+					speaker_x_tokens = speaker_tokenizer.tokenize(relation.speaker_x)
+					speaker_y_tokens = speaker_tokenizer.tokenize(relation.speaker_y)
+					for line in dialog:
+						line_len = len(speaker_tokenizer.tokenize(line))
+						if count+line_len+len(speaker_x_tokens)+len(speaker_y_tokens)+4>max_length: break
+						count+=line_len
+						lim_dialog.append(line)
 					yield idx, {
-						"dialog": d,
+						"dialog": "\n".join(lim_dialog).lower(),
 						"relation": relation,
 					}
 
