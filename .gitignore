@@ -1,5 +1,6 @@
 *.pt
 *.pkl
+*.bak
 *logits_dev.txt
 *logits_devc.txt
 *logits_test.txt

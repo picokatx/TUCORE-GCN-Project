@@ -284,6 +284,7 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         hidden_act="gelu",
         hidden_dropout_prob=0.1,
         attention_probs_dropout_prob=0.1,
+        turn_attention_dropout_prob=0.1,
         max_position_embeddings=512,
         type_vocab_size=2,
         initializer_range=0.02,
@@ -295,6 +296,7 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         gcn_layers=2,
         gcn_act="relu",
         gcn_dropout=0.6,
+        debug_ret=False,
         **kwargs,
     ):
         super().__init__(pad_token_id=pad_token_id, **kwargs)
@@ -307,6 +309,7 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         self.intermediate_size = intermediate_size
         self.hidden_dropout_prob = hidden_dropout_prob
         self.attention_probs_dropout_prob = attention_probs_dropout_prob
+        self.turn_attention_dropout_prob = turn_attention_dropout_prob
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.initializer_range = initializer_range
@@ -317,9 +320,10 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         self.gcn_layers = gcn_layers
         self.gcn_act = gcn_act
         self.gcn_dropout = gcn_dropout
+        self.debug_ret = debug_ret
 
 
-# [picokatx] Copied from transformers.models.bert.modeling_bert.BertEmbeddings with Bert->TUCORE-GCN-Bert
+# Copied from transformers.models.bert.modeling_bert.BertEmbeddings with Bert->TUCORE-GCN-Bert
 class BertEmbeddings(nn.Module):
     """Construct the embeddings from word, position and token_type embeddings."""
 
@@ -339,7 +343,7 @@ class BertEmbeddings(nn.Module):
         )
         # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
         # any TensorFlow checkpoint file
-        # [picokatx] TUCORE-GCN implements a custom LayerNorm that emulates tensorflow's behaviour
+        # TUCORE-GCN implements a custom LayerNorm that emulates tensorflow's behaviour
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
@@ -1235,6 +1239,7 @@ class BertModel(BertPreTrainedModel):
         )
 
 
+
 class RelGraphConvLayer(nn.Module):
     r"""Relational graph convolution layer.
     Parameters
@@ -1354,27 +1359,6 @@ class RelGraphConvLayer(nn.Module):
 
         return {ntype: _apply(ntype, h) for ntype, h in hs.items()}
 
-
-class ScaledDotProductAttention(nn.Module):
-    """Scaled Dot-Product Attention"""
-
-    def __init__(self, temperature, attn_dropout=0.1):
-        super().__init__()
-        self.temperature = temperature
-        self.dropout = nn.Dropout(attn_dropout)
-
-    def forward(self, q, k, v, mask=None):
-        attn = torch.matmul(q / self.temperature, k.transpose(2, 3))
-
-        if mask is not None:
-            attn = attn.masked_fill(mask == 0, -1e9)
-
-        attn = self.dropout(F.softmax(attn, dim=-1))
-        output = torch.matmul(attn, v)
-
-        return output, attn
-
-
 class ScaledDotProductAttention(nn.Module):
     """Scaled Dot-Product Attention"""
 
@@ -1395,37 +1379,39 @@ class ScaledDotProductAttention(nn.Module):
         return output, attn
 
 
+# modified to adhere to XLM implementation naming convention
 class MultiHeadAttention(nn.Module):
     """Multi-Head Attention module"""
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
+    def __init__(self, n_heads, dim_model, dim_k, dim_v, config):
         super().__init__()
 
-        self.n_head = n_head
-        self.d_k = d_k
-        self.d_v = d_v
+        self.n_heads = n_heads
+        self.dim_k = dim_k
+        self.dim_v = dim_v
 
-        self.w_qs = nn.Linear(d_model, n_head * d_k, bias=False)
-        self.w_ks = nn.Linear(d_model, n_head * d_k, bias=False)
-        self.w_vs = nn.Linear(d_model, n_head * d_v, bias=False)
-        self.fc = nn.Linear(n_head * d_v, d_model, bias=False)
+        self.w_qs = nn.Linear(dim_model, n_heads * dim_k, bias=False)
+        self.w_ks = nn.Linear(dim_model, n_heads * dim_k, bias=False)
+        self.w_vs = nn.Linear(dim_model, n_heads * dim_v, bias=False)
+        self.out_lin = nn.Linear(n_heads * dim_v, dim_model, bias=False)
+        print(self.dim_k % self.n_heads == 0)
+        print(self.dim_v % self.n_heads == 0)
+        self.attention = ScaledDotProductAttention(temperature=dim_k**0.5)
 
-        self.attention = ScaledDotProductAttention(temperature=d_k**0.5)
-
-        self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        self.dropout = nn.Dropout(config.turn_attention_dropout_prob)
+        self.layer_norm = nn.LayerNorm(dim_model, eps=1e-6)
 
     def forward(self, q, k, v, mask=None):
-        d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
+        dim_k, dim_v, n_heads = self.dim_k, self.dim_v, self.n_heads
         sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
 
         residual = q
 
         # Pass through the pre-attention projection: b x lq x (n*dv)
         # Create n Heads from initial qkv matrices (b x lq x n x dv)
-        q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
-        k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
-        v = self.w_vs(v).view(sz_b, len_v, n_head, d_v)
+        q = self.w_qs(q).view(sz_b, len_q, n_heads, dim_k)
+        k = self.w_ks(k).view(sz_b, len_k, n_heads, dim_k)
+        v = self.w_vs(v).view(sz_b, len_v, n_heads, dim_v)
 
         # Transpose for attention dot product: b x n x lq x dv
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
@@ -1438,7 +1424,7 @@ class MultiHeadAttention(nn.Module):
         # Transpose to move the head dimension back: b x lq x n x dv
         # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
         q = q.transpose(1, 2).contiguous().view(sz_b, len_q, -1)
-        q = self.dropout(self.fc(q))
+        q = self.dropout(self.out_lin(q))
         q += residual
 
         q = self.layer_norm(q)
@@ -1517,7 +1503,7 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
             config.hidden_size,
             self.attention_head_size,
             self.attention_head_size,
-            config.attention_probs_dropout_prob,
+            config,
         )
 
         rel_name_lists = [
@@ -1566,9 +1552,18 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
         attention_mask,
         speaker_ids,
         graphs,
-        mention_id,
+        mention_ids,
         turn_mask=None,
     ):
+        print({
+            "input_ids": input_ids,
+            "token_type_ids": token_type_ids,
+            "attention_mask": attention_mask,
+            "speaker_ids": speaker_ids,
+            "graphs": graphs,
+            "mention_ids": mention_ids,
+            "turn_mask": turn_mask
+        })
         """
         Encoder Module
         """
@@ -1589,17 +1584,19 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
             sequence_outputs, sequence_outputs, sequence_outputs, turn_mask
         )
         """
-        Set up mention_id features and graph layers
+        Selectively obtain features from turn attention module output
         """
         #initialize some variables
         features = None
         num_batch_turn = []
         slen = input_ids.size(1)
-        # Iterate over all GCN layers
+        # Iterate over all inputs to be processed
         for i in range(len(graphs)):
             sequence_output = sequence_outputs[i]
+            mention_id = mention_ids[i]
+            pooled_output = pooled_outputs[i]
             # Find the last turn (in the case of tucoregcn, it is the masked speaker dictionary)
-            mention_num = torch.max(mention_id[i])
+            mention_num = torch.max(mention_id)
             # Create a mention matrix idx of mention_num*slen
             num_batch_turn.append(mention_num + 1)
             mention_index = (
@@ -1608,8 +1605,8 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
             if torch.cuda.is_available():
                 mention_index = mention_index.cuda()
             # Create a mentions matrix of slen*mention_num
-            mentions = mention_id[i].unsqueeze(0).expand(mention_num, -1)
-            # Generate 1 hot encoding of each speaker's dialogue
+            mentions = mention_id.unsqueeze(0).expand(mention_num, -1)
+            # Generate truth matrix of each speaker's dialogue over the entire conversation
             select_metrix = (mention_index == mentions).float()
             # Factor into the one-hot encoding, the total number of words in each speaker's dialogue
             word_total_numbers = (
@@ -1622,34 +1619,42 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
             )
             # Apply one hot encoding to sequence_output to selectively obtain features
             x = torch.mm(select_metrix, sequence_output)
-            x = torch.cat((pooled_outputs[i].unsqueeze(0), x), dim=0)
+            x = torch.cat((pooled_output.unsqueeze(0), x), dim=0)
             # Iteratively concatenate features from all sequence_outputs
             if features is None:
                 features = x
             else:
                 features = torch.cat((features, x), dim=0)
+        # Batch dgl graphs into 1 graph for efficient computation
         graph_big = dgl.batch(graphs)
         output_features = [features]
         """
         Dialogue Graph with Sequential Nodes Module
         """
+        # Loop over 2 GCN Layers
         for layer_num, GCN_layer in enumerate(self.GCN_layers):
             start = 0
             new_features = []
+            # Loop over inputs
             for idx in num_batch_turn:
+                # CLS feature
                 new_features.append(features[start])
+                # Dialogue Feature
                 lstm_out = self.LSTM_layers[layer_num](
                     features[start + 1 : start + idx - 2].unsqueeze(0)
                 )
                 new_features += lstm_out
+                # Object+Subject Feature
                 new_features.append(features[start + idx - 2])
                 new_features.append(features[start + idx - 1])
+                # Increment by length of current input feature
                 start += idx
+            # Throw GCN at it and pray
             features = torch.stack(new_features)
             features = GCN_layer(graph_big, {"node": features})["node"]
             output_features.append(features)
         """
-        Classification Module
+        Put together return graph output
         """
         graphs = dgl.unbatch(graph_big)
         graph_output = list()
@@ -1714,7 +1719,7 @@ class TUCOREGCN_BertForSequenceClassification(BertPreTrainedModel):
         token_type_ids: Optional[torch.Tensor] = None,
         speaker_ids: Optional[torch.Tensor] = None,
         graphs: Optional[torch.Tensor] = None,
-        mention_id: Optional[torch.Tensor] = None,
+        mention_ids: Optional[torch.Tensor] = None,
         labels: Optional[torch.Tensor] = None,
         turn_mask: Optional[torch.Tensor] = None,
         output_attentions: Optional[bool] = None,
@@ -1737,7 +1742,7 @@ class TUCOREGCN_BertForSequenceClassification(BertPreTrainedModel):
             attention_mask=attention_mask,
             speaker_ids=speaker_ids,
             graphs=graphs,
-            mention_id=mention_id,
+            mention_ids=mention_ids,
             turn_mask=turn_mask,
         )
         

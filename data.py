@@ -76,11 +76,11 @@ class DataProcessor(object):
             return lines
 
 class bertsProcessor(DataProcessor): #bert_s
-    def __init__(self, src_file, n_class):
+    def __init__(self, src_file, n_class, for_f1c=False):
         def is_speaker(a):
             a = a.split()
             return len(a) == 2 and a[0] == "speaker" and a[1].isdigit()
-        
+        # Marks a speaker as object/subject
         def rename(d, x, y):
             unused = ["[unused1]", "[unused2]"]
             a = []
@@ -105,9 +105,13 @@ class bertsProcessor(DataProcessor): #bert_s
         random.seed(42)
         self.D = [[], [], []]
         for sid in range(3):
-            with open(src_file+["/train.json", "/dev.json", "/test.json"][sid], "r", encoding="utf8") as f:
-                data = json.load(f)
-            if sid == 0:
+            if for_f1c:
+                with open(src_file+["/dev.json", "/test.json"][sid-1], "r", encoding="utf8") as f:
+                    data = json.load(f)
+            else:
+                with open(src_file+["/train.json", "/dev.json", "/test.json"][sid], "r", encoding="utf8") as f:
+                    data = json.load(f)
+            if sid == 0 and not for_f1c:
                 random.shuffle(data)
             for i in range(len(data)):
                 for j in range(len(data[i][1])):
@@ -117,7 +121,11 @@ class bertsProcessor(DataProcessor): #bert_s
                             rid += [1]
                         else:
                             rid += [0]
-                    d, h, t = rename('\n'.join(data[i][0]).lower(), data[i][1][j]["x"].lower(), data[i][1][j]["y"].lower())
+                    if for_f1c:
+                        for l in range(1, len(data[i][0])+1):
+                            d, h, t = rename('\n'.join(data[i][0][:l]).lower(), data[i][1][j]["x"].lower(), data[i][1][j]["y"].lower())
+                    else:
+                        d, h, t = rename('\n'.join(data[i][0]).lower(), data[i][1][j]["x"].lower(), data[i][1][j]["y"].lower()) # [f1c]
                     d = [d,
                          h,
                          t,
@@ -156,90 +164,9 @@ class bertsProcessor(DataProcessor): #bert_s
             
         return examples
 
-class bertsf1cProcessor(DataProcessor): #bert_s (conversational f1)
-    def __init__(self, src_file, n_class):
-        def is_speaker(a):
-            a = a.split()
-            return (len(a) == 2 and a[0] == "speaker" and a[1].isdigit())
-        
-        def rename(d, x, y):
-            unused = ["[unused1]", "[unused2]"]
-            a = []
-            if is_speaker(x):
-                a += [x]
-            else:
-                a += [None]
-            if x != y and is_speaker(y):
-                a += [y]
-            else:
-                a += [None]
-            for i in range(len(a)):
-                if a[i] is None:
-                    continue
-                d = d.replace(a[i] + ":", unused[i] + " :")
-                if x == a[i]:
-                    x = unused[i]
-                if y == a[i]:
-                    y = unused[i]
-            return d, x, y
-            
-        random.seed(42)
-        self.D = [[], [], []]
-        for sid in range(1, 3):
-            with open(src_file+["/dev.json", "/test.json"][sid-1], "r", encoding="utf8") as f:
-                data = json.load(f)
-            for i in range(len(data)):
-                for j in range(len(data[i][1])):
-                    rid = []
-                    for k in range(n_class):
-                        if k+1 in data[i][1][j]["rid"]:
-                            rid += [1]
-                        else:
-                            rid += [0]
-                    for l in range(1, len(data[i][0])+1):
-                        d, h, t = rename('\n'.join(data[i][0][:l]).lower(), data[i][1][j]["x"].lower(), data[i][1][j]["y"].lower())
-                        d = [d,
-                             h,
-                             t,
-                             rid]
-                        self.D[sid] += [d]
-        logger.info(str(len(self.D[0])) + "," + str(len(self.D[1])) + "," + str(len(self.D[2])))
-        
-    def get_train_examples(self, data_dir):
-        """See base class."""
-        return self._create_examples(
-                self.D[0], "train")
-
-    def get_test_examples(self, data_dir):
-        """See base class."""
-        return self._create_examples(
-                self.D[2], "test")
-
-    def get_dev_examples(self, data_dir):
-        """See base class."""
-        return self._create_examples(
-                self.D[1], "dev")
-
-    def get_labels(self):
-        """See base class."""
-        return [str(x) for x in range(2)]
-
-    def _create_examples(self, data, set_type):
-        """Creates examples for the training and dev sets."""
-        examples = []
-        for (i, d) in enumerate(data):
-            guid = "%s-%s" % (set_type, i)
-            text_a = data[i][0]
-            text_b = data[i][1]
-            text_c = data[i][2]
-            examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=data[i][3], text_c=text_c))
-            
-        return examples
-
-def tokenize(text, tokenizer, start_mention_id):
+def tokenize(text, tokenizer, start_mention_id=None):
     speaker2id = {'[unused1]' : 11, '[unused2]' : 12, 'speaker 1' : 1, 'speaker 2' : 2, 'speaker 3' : 3, 'speaker 4' : 4, 'speaker 5' : 5, 'speaker 6' : 6, 'speaker 7' : 7, 'speaker 8' : 8, 'speaker 9' : 9}
     D = ['[unused1]', '[unused2]', 'speaker 1', 'speaker 2', 'speaker 3', 'speaker 4', 'speaker 5', 'speaker 6', 'speaker 7', 'speaker 8', 'speaker 9']
-    text_tokens = []
     textraw = [text]
     for delimiter in D:
         ntextraw = []
@@ -252,32 +179,38 @@ def tokenize(text, tokenizer, start_mention_id):
         textraw = ntextraw
     text = []
     speaker_ids = []
-    mention_ids = []
-    mention_id = start_mention_id
+    if start_mention_id!=None:
+        mention_ids = []
+        mention_id = start_mention_id
     speaker_id = 0
     for t in textraw:
         if t in ['speaker 1', 'speaker 2', 'speaker 3', 'speaker 4', 'speaker 5', 'speaker 6', 'speaker 7', 'speaker 8', 'speaker 9']:
             speaker_id = speaker2id[t]
-            mention_id += 1
+            if start_mention_id!=None:
+                mention_id += 1
             tokens = tokenizer.tokenize(t+" ")
             for tok in tokens:
                 text += [tok]
                 speaker_ids.append(speaker_id)
-                mention_ids.append(mention_id)
+                if start_mention_id!=None:
+                    mention_ids.append(mention_id)
         elif t in ['[unused1]', '[unused2]']:
             speaker_id = speaker2id[t]
-            mention_id += 1
+            if start_mention_id!=None:
+                mention_id += 1
+                mention_ids.append(mention_id)
             text += [t]
             speaker_ids.append(speaker_id)
-            mention_ids.append(mention_id)
         else:
             tokens = tokenizer.tokenize(t)
             for tok in tokens:
                 text += [tok]
                 speaker_ids.append(speaker_id)
-                mention_ids.append(mention_id)
-
-    return text, speaker_ids, mention_ids
+                if start_mention_id!=None:
+                    mention_ids.append(mention_id)
+    if start_mention_id!=None:
+        return text, speaker_ids, mention_ids
+    return text, speaker_ids
 
 def tokenize2(text, tokenizer):
     speaker2id = {'[unused1]' : 11, '[unused2]' : 12, 'speaker 1' : 1, 'speaker 2' : 2, 'speaker 3' : 3, 'speaker 4' : 4, 'speaker 5' : 5, 'speaker 6' : 6, 'speaker 7' : 7, 'speaker 8' : 8, 'speaker 9' : 9}
@@ -312,7 +245,6 @@ def tokenize2(text, tokenizer):
             for tok in tokens:
                 text += [tok]
                 speaker_ids.append(speaker_id)
-
     return text, speaker_ids
 
 def convert_examples_to_features(examples, max_seq_length, tokenizer):
@@ -323,22 +255,22 @@ def convert_examples_to_features(examples, max_seq_length, tokenizer):
     features = [[]]
     for (ex_index, example) in enumerate(examples):
         tokens_a, tokens_a_speaker_ids, tokens_a_mention_ids = tokenize(example.text_a, tokenizer, 0)
-        tokens_b, tokens_b_speaker_ids = tokenize2(example.text_b, tokenizer)
-        tokens_c, tokens_c_speaker_ids = tokenize2(example.text_c, tokenizer)
+        tokens_b, tokens_b_speaker_ids = tokenize(example.text_b, tokenizer)
+        tokens_c, tokens_c_speaker_ids = tokenize(example.text_c, tokenizer)
 
         _truncate_seq_tuple(tokens_a, tokens_b, tokens_c, max_seq_length - 4, tokens_a_speaker_ids, tokens_b_speaker_ids, tokens_c_speaker_ids, tokens_a_mention_ids)
         tokens_b_mention_ids = [max(tokens_a_mention_ids) + 1 for _ in range(len(tokens_b))]
         tokens_c_mention_ids = [max(tokens_a_mention_ids) + 2 for _ in range(len(tokens_c))]
 
-        tokens_b = tokens_b + ["[SEP]"] + tokens_c
-        tokens_b_speaker_ids = tokens_b_speaker_ids + [0] + tokens_c_speaker_ids
-        tokens_b_mention_ids = tokens_b_mention_ids + [0] + tokens_c_mention_ids
+        tokens_b = tokens_b + ["[SEP]"] + tokens_c # roberta
+        tokens_b_speaker_ids = tokens_b_speaker_ids + [0] + tokens_c_speaker_ids # roberta
+        tokens_b_mention_ids = tokens_b_mention_ids + [0] + tokens_c_mention_ids # roberta
 
         tokens = []
         segment_ids = []
         speaker_ids = []
         mention_ids = []
-        tokens.append("[CLS]")
+        tokens.append("[CLS]") # roberta
         segment_ids.append(0)
         speaker_ids.append(0)
         mention_ids.append(0)
@@ -347,7 +279,7 @@ def convert_examples_to_features(examples, max_seq_length, tokenizer):
             segment_ids.append(0)
         speaker_ids = speaker_ids + tokens_a_speaker_ids
         mention_ids = mention_ids + tokens_a_mention_ids
-        tokens.append("[SEP]")
+        tokens.append("[SEP]") # roberta
         segment_ids.append(0)
         speaker_ids.append(0)
         mention_ids.append(0)
@@ -357,7 +289,7 @@ def convert_examples_to_features(examples, max_seq_length, tokenizer):
             segment_ids.append(1)
         speaker_ids = speaker_ids + tokens_b_speaker_ids
         mention_ids = mention_ids + tokens_b_mention_ids
-        tokens.append("[SEP]")
+        tokens.append("[SEP]") # roberta
         segment_ids.append(1)
         speaker_ids.append(0)
         mention_ids.append(0)
@@ -423,8 +355,8 @@ def convert_examples_to_features_roberta(examples, max_seq_length, tokenizer):
     features = [[]]
     for (ex_index, example) in enumerate(examples):
         tokens_a, tokens_a_speaker_ids, tokens_a_mention_ids = tokenize(example.text_a, tokenizer, 0)
-        tokens_b, tokens_b_speaker_ids = tokenize2(example.text_b, tokenizer)
-        tokens_c, tokens_c_speaker_ids = tokenize2(example.text_c, tokenizer)
+        tokens_b, tokens_b_speaker_ids = tokenize(example.text_b, tokenizer)
+        tokens_c, tokens_c_speaker_ids = tokenize(example.text_c, tokenizer)
 
         _truncate_seq_tuple(tokens_a, tokens_b, tokens_c, max_seq_length - 6, tokens_a_speaker_ids, tokens_b_speaker_ids, tokens_c_speaker_ids, tokens_a_mention_ids)
         tokens_b_mention_ids = [max(tokens_a_mention_ids) + 1 for _ in range(len(tokens_b))]
@@ -755,7 +687,7 @@ class TUCOREGCNDataset4f1c(IterableDataset):
         else:
             self.data = []
 
-            bertsProcessor_class = bertsf1cProcessor(src_file, n_class)
+            bertsProcessor_class = bertsProcessor(src_file, n_class)
             if "dev" in save_file:
                 examples = bertsProcessor_class.get_dev_examples(save_file)
             elif "test" in save_file:
