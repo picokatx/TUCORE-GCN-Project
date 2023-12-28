@@ -9,19 +9,41 @@ def softmax(outputs):
 	shifted_exp = np.exp(outputs - maxes)
 	return shifted_exp / shifted_exp.sum(axis=-1, keepdims=True)
 
+def mention2mask(mention_id):
+    slen = len(mention_id)
+    mask = []
+    turn_mention_ids = [i for i in range(1, np.max(mention_id)+1)]
+    print(turn_mention_ids)
+    for j in range(slen):
+        tmp = None
+        if mention_id[j] not in turn_mention_ids:
+            tmp = np.zeros(slen, dtype=bool)
+            #tmp[j] = 1
+        else:
+            start = mention_id[j]
+            end = mention_id[j]
+            if mention_id[j] - 1 in turn_mention_ids:
+                start = mention_id[j] - 1
 
-class ConversationalSequenceClassification(Pipeline):
+            if mention_id[j] + 1 in turn_mention_ids:
+                end = mention_id[j] + 1
+            
+            tmp = (mention_id >= start) & (mention_id <= end)
+        mask.append(tmp)
+    mask = np.stack(mask)
+    return mask
+
+class ConversationalSequenceClassificationPipeline(Pipeline):
 	def _sanitize_parameters(self, **kwargs):
 		preprocess_kwargs = {}
-		if "second_text" in kwargs:
-			preprocess_kwargs["second_text"] = kwargs["second_text"]
+		if "tokenizer" in kwargs:
+			preprocess_kwargs["speaker_tokenizer"] = kwargs["tokenizer"]
 		return preprocess_kwargs, {}, {}
 
-	def preprocess(self, conversation: Conversation):
+	def preprocess(self, conversation: Conversation, speaker_tokenizer):
 		n_class = 36
-		speaker_tokenizer = SpeakerBertTokenizer.from_pretrained('bert-base-uncased')
+		max_seq_length=512
 		test2 = conversation.build_inputs(speaker_tokenizer)[0]
-		speaker_tokens = [entry[1] for idx, entry in list(filter(lambda x: x[1][1] if not x[1][0].startswith("__") else None, enumerate(SPEAKER_TOKENS.__dict__.items())))]
 		sequence = speaker_tokenizer.tokenize(test2['dialog'])
 		speaker_x = speaker_tokenizer.tokenize(test2['relation'].speaker_x)
 		speaker_y = speaker_tokenizer.tokenize(test2['relation'].speaker_y)
@@ -50,7 +72,25 @@ class ConversationalSequenceClassification(Pipeline):
 				label_id.append(1)
 			else:
 				label_id.append(0)
-		return tokens, input_ids, input_mask, segment_ids, speaker_ids, mention_ids
+		while len(input_ids) < max_seq_length:
+			tokens.append('[PAD]')
+			input_ids.append(0)
+			input_mask.append(0)
+			segment_ids.append(0)
+			speaker_ids.append(0)
+			mention_ids.append(0)
+
+		turn_masks = mention2mask(np.array(mention_ids))
+		
+		return (
+			np.array(tokens),
+			np.array(input_ids),
+			np.array(input_mask),
+			np.array(segment_ids),
+			np.array(speaker_ids),
+			np.array(mention_ids),
+			turn_masks,
+		)
 
 	def _forward(self, model_inputs):
 		return self.model(**model_inputs)
