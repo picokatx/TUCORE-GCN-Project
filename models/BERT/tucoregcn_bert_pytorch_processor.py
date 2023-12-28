@@ -17,7 +17,8 @@
 
 import json
 import os
-from typing import List
+from typing import Any, Dict, List, Union
+import uuid
 import datasets
 import random
 from dataclasses import dataclass
@@ -55,18 +56,161 @@ _URLs = {
 }
 
 @dataclass
-class DialogRERelation():
+class SpeakerRelation():
 	speaker_x: str
 	speaker_y: str
-	rid: List[int] #one hot
-	def from_dialogRE(entry, n_class):
-		rid = []
-		for k in range(n_class):
-			if k+1 in entry['rid']:
-				rid += [1]
-			else:
-				rid += [0]
-		return DialogRERelation(entry['x'], entry['y'], rid)
+	rid: List[int]
+
+@dataclass
+class Message:
+	speaker: str
+	dialog: str
+
+class Conversation:
+	"""
+	Utility class containing a conversation and its history. This class is meant to be used as an input to the
+	[`ConversationalPipeline`]. The conversation contains several utility functions to manage the addition of new user
+	inputs and generated model responses.
+
+	Arguments:
+		messages (Union[str, List[Dict[str, str]]], *optional*):
+			The initial messages to start the conversation, either a string, or a list of dicts containing "role" and
+			"content" keys. If a string is passed, it is interpreted as a single message with the "user" role.
+		conversation_id (`uuid.UUID`, *optional*):
+			Unique identifier for the conversation. If not provided, a random UUID4 id will be assigned to the
+			conversation.
+
+	Usage:
+
+	```python
+	conversation = Conversation("Going to the movies tonight - any suggestions?")
+	conversation.add_message({"role": "assistant", "content": "The Big lebowski."})
+	conversation.add_message({"role": "user", "content": "Is it good?"})
+	```"""
+
+	def __init__(
+		self, messages: Union[str, List[str], List[Message]]=[], speaker_relations: List[SpeakerRelation]=[], conversation_id: uuid.UUID = None, **deprecated_kwargs
+	):
+		if not conversation_id:
+			conversation_id = uuid.uuid4()
+
+		if isinstance(messages, List):
+			if isinstance(messages[0], Message):
+				messages = [message.speaker + ": " + message.dialog for message in messages]
+		elif isinstance(messages, str):
+			messages = [messages]
+		self.uuid = conversation_id
+		self.speaker_relations = speaker_relations
+		self.messages = messages
+
+	def __eq__(self, other):
+		if not isinstance(other, Conversation):
+			return False
+		return self.uuid == other.uuid or self.messages == other.messages
+
+	def add_message(self, message: Message):
+		self.messages.append(message)
+
+	def __iter__(self):
+		for message in self.messages:
+			yield message
+
+	def __getitem__(self, item):
+		return self.messages[item]
+
+	def __setitem__(self, key, value):
+		self.messages[key] = value
+
+	def __len__(self):
+		return len(self.messages)
+
+	def __repr__(self):
+		"""
+		Generates a string representation of the conversation.
+
+		Returns:
+			`str`:
+
+		Example:
+			Conversation id: 7d15686b-dc94-49f2-9c4b-c9eac6a1f114 user: Going to the movies tonight - any suggestions?
+			bot: The Big Lebowski
+		"""
+		output = f"Conversation id: {self.uuid}\n"
+		output += f"Relations: {self.speaker_relations}\n"
+		for message in self.messages:
+			output += f"{message}\n"
+		return output
+	def is_speaker(self,a):
+		a = a.split()
+		return len(a) == 2 and a[0] == "Speaker" and a[1].isdigit()
+	def rename(self, dialog: List[str], relation: SpeakerRelation):
+		ret_relation = SpeakerRelation(relation.speaker_x, relation.speaker_y, relation.rid)
+		soi = [SPEAKER_TOKENS.SPEAKER_X, SPEAKER_TOKENS.SPEAKER_Y] #speaker_of_interest
+		ret_dialog = []
+		a = []
+		if self.is_speaker(relation.speaker_x):
+			a += [relation.speaker_x]
+		else:
+			a += [None]
+		if relation.speaker_x != relation.speaker_y and self.is_speaker(relation.speaker_y):
+			a += [relation.speaker_y]
+		else:
+			a += [None]
+		for d in dialog:
+			for i in range(len(a)):
+				if a[i] is None:
+					continue
+				d = d.replace(a[i] + ":", soi[i])
+			d = d.replace("Speaker 1:", SPEAKER_TOKENS.SPEAKER_1)
+			d = d.replace("Speaker 2:", SPEAKER_TOKENS.SPEAKER_2)
+			d = d.replace("Speaker 3:", SPEAKER_TOKENS.SPEAKER_3)
+			d = d.replace("Speaker 4:", SPEAKER_TOKENS.SPEAKER_4)
+			d = d.replace("Speaker 5:", SPEAKER_TOKENS.SPEAKER_5)
+			d = d.replace("Speaker 6:", SPEAKER_TOKENS.SPEAKER_6)
+			d = d.replace("Speaker 7:", SPEAKER_TOKENS.SPEAKER_7)
+			d = d.replace("Speaker 8:", SPEAKER_TOKENS.SPEAKER_8)
+			d = d.replace("Speaker 9:", SPEAKER_TOKENS.SPEAKER_9)
+			ret_dialog.append(d)
+		for i in range(len(a)):
+			if a[i] is None:
+				continue
+			if relation.speaker_x == a[i]:
+				ret_relation.speaker_x = soi[i]
+			if relation.speaker_y == a[i]:
+				ret_relation.speaker_y = soi[i]
+		return ret_dialog, ret_relation
+	def build_input_with_relation(self, relation, tokenizer, max_length=512, for_f1c=False):
+		if for_f1c:
+			'''for l in range(1, len(self.messages)+1):
+				dialog, relation = self.rename(self.messages[:l], relation)'''
+		else:
+			dialog, relation = self.rename(self.messages, relation)
+		count = 0
+		lim_dialog = []
+		speaker_x_tokens = tokenizer.tokenize(relation.speaker_x)
+		speaker_y_tokens = tokenizer.tokenize(relation.speaker_y)
+		for line in dialog:
+			line_len = len(tokenizer.tokenize(line))
+			if count+line_len+len(speaker_x_tokens)+len(speaker_y_tokens)+4>max_length: break
+			count+=line_len
+			lim_dialog.append(line)
+		return {
+			"dialog": "\n".join(lim_dialog).lower(),
+			"relation": relation,
+		}
+	def build_inputs(self, tokenizer, max_length=512, for_f1c=False):
+		ret = []
+		speaker_relations_iterator = enumerate(self.speaker_relations)
+		while True:
+			idx, relation = next(speaker_relations_iterator, (-1,-1))
+			if idx==-1: break
+			ret_dialog, ret_relation = self.build_input_with_relation(relation, tokenizer, max_length, for_f1c).values()
+			if ret_dialog!="":				
+				ret.append({
+					"dialog": ret_dialog,
+					"relation": ret_relation,
+				})
+		return ret
 
 class DialogREConfig(datasets.BuilderConfig):
 	"""BuilderConfig for DialogRE"""
@@ -151,42 +295,7 @@ class DialogRE(datasets.GeneratorBasedBuilder):
 		)
 	
 	#_get_examples_iterable_for_split
-	def _generate_examples(self, filepath, split, n_class=36, max_length=512, for_f1c=False):
-		def is_speaker(a):
-				a = a.split()
-				return len(a) == 2 and a[0] == "Speaker" and a[1].isdigit()
-		def rename(dialog: List[str], relation: DialogRERelation):
-				soi = [SPEAKER_TOKENS.SPEAKER_X, SPEAKER_TOKENS.SPEAKER_Y] #speaker_of_interest
-				ret_dialog = []
-				a = []
-				if is_speaker(relation.speaker_x):
-					a += [relation.speaker_x]
-				else:
-					a += [None]
-				if relation.speaker_x != relation.speaker_y and is_speaker(relation.speaker_y):
-					a += [relation.speaker_y]
-				else:
-					a += [None]
-				for i in range(len(a)):
-					if a[i] is None:
-						continue
-					for d in dialog:
-						d = d.replace(a[i] + ":", soi[i])
-						d = d.replace("Speaker 1:", SPEAKER_TOKENS.SPEAKER_1)
-						d = d.replace("Speaker 2:", SPEAKER_TOKENS.SPEAKER_2)
-						d = d.replace("Speaker 3:", SPEAKER_TOKENS.SPEAKER_3)
-						d = d.replace("Speaker 4:", SPEAKER_TOKENS.SPEAKER_4)
-						d = d.replace("Speaker 5:", SPEAKER_TOKENS.SPEAKER_5)
-						d = d.replace("Speaker 6:", SPEAKER_TOKENS.SPEAKER_6)
-						d = d.replace("Speaker 7:", SPEAKER_TOKENS.SPEAKER_7)
-						d = d.replace("Speaker 8:", SPEAKER_TOKENS.SPEAKER_8)
-						d = d.replace("Speaker 9:", SPEAKER_TOKENS.SPEAKER_9)
-						ret_dialog.append(d)
-					if relation.speaker_x == a[i]:
-						relation.speaker_x = soi[i]
-					if relation.speaker_y == a[i]:
-						relation.speaker_y = soi[i]
-				return ret_dialog, relation
+	def _generate_examples(self, filepath, split, max_length=512, for_f1c=False):
 		"""Yields examples."""
 		speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
 		with open(filepath, encoding="utf-8") as f:
@@ -196,24 +305,17 @@ class DialogRE(datasets.GeneratorBasedBuilder):
 			for idx, entry in enumerate(dataset):
 				dialog_raw = entry[0]
 				relation_data = entry[1]
-				relations = [DialogRERelation.from_dialogRE(relation, n_class) for relation in relation_data]
-				for idx, relation in enumerate(relations):
-					if for_f1c:
-						for l in range(1, len(dialog_raw)+1):
-							dialog, relation = rename(dialog_raw[:l], relation)
-					else:
-						dialog, relation = rename(dialog_raw, relation)
-					count = 0
-					lim_dialog = []
-					speaker_x_tokens = speaker_tokenizer.tokenize(relation.speaker_x)
-					speaker_y_tokens = speaker_tokenizer.tokenize(relation.speaker_y)
-					for line in dialog:
-						line_len = len(speaker_tokenizer.tokenize(line))
-						if count+line_len+len(speaker_x_tokens)+len(speaker_y_tokens)+4>max_length: break
-						count+=line_len
-						lim_dialog.append(line)
-					yield idx, {
-						"dialog": "\n".join(lim_dialog).lower(),
-						"relation": relation,
-					}
+				relations = [SpeakerRelation(relation['x'], relation['y'], relation['rid']) for relation in relation_data]
+				c = Conversation(dialog_raw, relations)
+				speaker_relations_iterator = enumerate(c.speaker_relations)
+				while True:
+					idx, relation = next(speaker_relations_iterator, (-1,-1))
+					print(relation)
+					if idx==-1: break
+					ret_dialog, ret_relation = c.build_input_with_relation(relation, speaker_tokenizer, max_length, for_f1c).values()
+					if ret_dialog!="":				
+						yield idx, {
+							"dialog": ret_dialog,
+							"relation": ret_relation,
+						}
 

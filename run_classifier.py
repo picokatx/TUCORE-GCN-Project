@@ -29,6 +29,7 @@ import torch
 
 from models.BERT import tokenization
 from models.BERT.TUCOREGCN_BERT import BertConfig, TUCOREGCN_BERT
+from models.BERT.speaker_tokens import SPEAKER_TOKENS
 
 from models.RoBERTa.tokenization_roberta import RobertaTokenizer
 from models.RoBERTa.TUCOREGCN_RoBERTa import TUCOREGCN_RoBERTa
@@ -438,7 +439,7 @@ def main():
         tokenizer = tokenization.FullTokenizer(vocab_file=args.vocab_file, do_lower_case=args.do_lower_case)
     elif args.encoder_type == "RoBERTa" and args.merges_file:
         tokenizer = RobertaTokenizer(vocab_file=args.vocab_file, merges_file=args.merges_file)
-        special_tokens_dict = {'additional_special_tokens': ["[unused1]", "[unused2]"]}
+        special_tokens_dict = {'additional_special_tokens': [SPEAKER_TOKENS.SPEAKER_X, SPEAKER_TOKENS.SPEAKER_Y]}
         num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
     else:
         raise ValueError("The Roberta model needs a merge file.")
