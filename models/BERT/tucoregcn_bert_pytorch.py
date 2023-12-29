@@ -297,6 +297,7 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         gcn_act="relu",
         gcn_dropout=0.6,
         debug_ret=False,
+        id2token={},
         **kwargs,
     ):
         super().__init__(pad_token_id=pad_token_id, **kwargs)
@@ -321,6 +322,7 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         self.gcn_act = gcn_act
         self.gcn_dropout = gcn_dropout
         self.debug_ret = debug_ret
+        self.id2token = id2token
 
 
 # Copied from transformers.models.bert.modeling_bert.BertEmbeddings with Bert->TUCORE-GCN-Bert
@@ -396,11 +398,9 @@ class BertEmbeddings(nn.Module):
                 token_type_ids = torch.zeros(
                     input_shape, dtype=torch.long, device=self.position_ids.device
                 )
-
         if inputs_embeds is None:
             inputs_embeds = self.word_embeddings(input_ids)
         token_type_embeddings = self.token_type_embeddings(token_type_ids)
-
         embeddings = inputs_embeds + token_type_embeddings
         if self.position_embedding_type == "absolute":
             position_embeddings = self.position_embeddings(position_ids)
@@ -408,7 +408,6 @@ class BertEmbeddings(nn.Module):
 
         speaker_embeddings = self.speaker_embeddings(speaker_ids)
         embeddings += speaker_embeddings
-
         embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
         return embeddings
@@ -1200,7 +1199,6 @@ class BertModel(BertPreTrainedModel):
         # input head_mask has shape [num_heads] or [num_hidden_layers x num_heads]
         # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
         head_mask = self.get_head_mask(head_mask, self.config.num_hidden_layers)
-
         embedding_output = self.embeddings(
             input_ids=input_ids,
             position_ids=position_ids,
@@ -1394,8 +1392,6 @@ class MultiHeadAttention(nn.Module):
         self.w_ks = nn.Linear(dim_model, n_heads * dim_k, bias=False)
         self.w_vs = nn.Linear(dim_model, n_heads * dim_v, bias=False)
         self.out_lin = nn.Linear(n_heads * dim_v, dim_model, bias=False)
-        print(self.dim_k % self.n_heads == 0)
-        print(self.dim_v % self.n_heads == 0)
         self.attention = ScaledDotProductAttention(temperature=dim_k**0.5)
 
         self.dropout = nn.Dropout(config.turn_attention_dropout_prob)
@@ -1555,15 +1551,6 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
         mention_ids,
         turn_mask=None,
     ):
-        print({
-            "input_ids": input_ids,
-            "token_type_ids": token_type_ids,
-            "attention_mask": attention_mask,
-            "speaker_ids": speaker_ids,
-            "graphs": graphs,
-            "mention_ids": mention_ids,
-            "turn_mask": turn_mask
-        })
         """
         Encoder Module
         """

@@ -55,11 +55,15 @@ _URLs = {
 	"test": _URL + "test.json",
 }
 
-@dataclass
-class SpeakerRelation():
+
+class SpeakerRelation:
 	speaker_x: str
 	speaker_y: str
 	rid: List[int]
+	def __init__(self, speaker_x, speaker_y, rid = [37]) -> None:
+		self.speaker_x = speaker_x
+		self.speaker_y = speaker_y
+		self.rid = rid
 
 @dataclass
 class Message:
@@ -310,7 +314,6 @@ class DialogRE(datasets.GeneratorBasedBuilder):
 				speaker_relations_iterator = enumerate(c.speaker_relations)
 				while True:
 					idx, relation = next(speaker_relations_iterator, (-1,-1))
-					print(relation)
 					if idx==-1: break
 					ret_dialog, ret_relation = c.build_input_with_relation(relation, speaker_tokenizer, max_length, for_f1c).values()
 					if ret_dialog!="":				
