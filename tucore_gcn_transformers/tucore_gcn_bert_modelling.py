@@ -15,6 +15,10 @@
 # limitations under the License.
 """PyTorch BERT model."""
 
+""" [markdown]
+block comment starts with a start mark
+and finally a end mark
+"""
 
 import math
 import os
@@ -60,23 +64,6 @@ from transformers.models.bert.configuration_bert import BertConfig
 
 import dgl
 import dgl.nn.pytorch as dglnn
-
-# coding=utf-8
-# Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
-# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""PyTorch BERT model."""
 
 logger = logging.get_logger(__name__)
 
@@ -325,7 +312,37 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         self.id2token = id2token
 
 
-# Copied from transformers.models.bert.modeling_bert.BertEmbeddings with Bert->TUCORE-GCN-Bert
+""" 
+* Modified from transformers.models.bert.modeling_bert.BertEmbeddings
+* 
+* **Modifications Summary**
+* Added Speaker Embeddings describing the source speaker for each token in the
+* input sequence
+* 
+* word_embeddings - nn.Embedding(30522, 768, padding_idx=0) 
+*    Shape: vocab_size*hidden_size
+*    Inputs: input_ids
+*    Id of each token in the input sequence.
+* position_embeddings - nn.Embedding(512, 768)
+*    Shape: max_position_embeddings*hidden_size
+*    Inputs: input_ids
+*    Position of each token in the input sequence counting from the left.
+* token_type_embeddings - nn.Embedding(2, 768)
+*    Shape: is_masked*hidden_size
+*    Inputs: token_type_ids (alias: segment_ids)
+*    Used in BERT for splitting inputs into 2 segments for QA or sentence pair
+*    classification tasks. Here, TUCORE-GCN places the conversation in the first
+*    segment, and the speakers/subjects of interest in the second segment
+*    It is formatted as shown below:
+*    [CLS] `conversation_tokens` [SEP] `soi_1` [SEP] `soi_2` [SEP] [PAD] ... [PAD]
+*    [CLS] {speaker_1} Hi Person! {speaker_2} Hello other person ! [SEP] {speaker_1} [SEP] {speaker_2} [SEP] [PAD] ... [PAD]
+* speaker_embeddings - nn.Embedding(512, 768)
+*    Shape: max_position_embeddings*hidden_size
+*    Inputs: input_ids
+*    Added Speaker Embeddings as seen in TUCORE-GCN. The mapping for each input embeddings is followed
+""" 
+
+
 class BertEmbeddings(nn.Module):
     """Construct the embeddings from word, position and token_type embeddings."""
 
@@ -345,7 +362,6 @@ class BertEmbeddings(nn.Module):
         )
         # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
         # any TensorFlow checkpoint file
-        # TUCORE-GCN implements a custom LayerNorm that emulates tensorflow's behaviour
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
@@ -1237,7 +1253,6 @@ class BertModel(BertPreTrainedModel):
         )
 
 
-
 class RelGraphConvLayer(nn.Module):
     r"""Relational graph convolution layer.
     Parameters
@@ -1356,6 +1371,7 @@ class RelGraphConvLayer(nn.Module):
             return self.dropout(h)
 
         return {ntype: _apply(ntype, h) for ntype, h in hs.items()}
+
 
 class ScaledDotProductAttention(nn.Module):
     """Scaled Dot-Product Attention"""
@@ -1528,7 +1544,7 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
                 for i in range(self.gcn_layers)
             ]
         )
-        #debug
+        # debug
         self.debug_ret = config.debug_ret
 
     """
@@ -1573,7 +1589,7 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
         """
         Selectively obtain features from turn attention module output
         """
-        #initialize some variables
+        # initialize some variables
         features = None
         num_batch_turn = []
         slen = input_ids.size(1)
@@ -1667,16 +1683,8 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
             fea_idx += node_num
             graph_output.append(intergrated_output)
         graph_output = torch.stack(graph_output)
-        if self.debug_ret:
-            return {
-                "graph_output": graph_output,
-                "graphs": graphs,
-                "sequence_outputs": sequence_outputs,
-                "pooled_outputs": pooled_outputs,
-                "attn": attn
-            }
-        else:
-            return BaseModelOutput(graph_output, outputs.past_key_values, attn)
+
+        return BaseModelOutput(graph_output, outputs.past_key_values, attn)
 
 
 # Partially copied from BertForSequenceClassification
@@ -1699,6 +1707,7 @@ class TUCOREGCN_BertForSequenceClassification(BertPreTrainedModel):
         self.debug_ret = config.debug_ret
         # Initialize weights and apply final processing
         self.post_init()
+
     def forward(
         self,
         input_ids: Optional[torch.Tensor] = None,
@@ -1732,7 +1741,7 @@ class TUCOREGCN_BertForSequenceClassification(BertPreTrainedModel):
             mention_ids=mention_ids,
             turn_mask=turn_mask,
         )
-        
+
         if self.debug_ret:
             return outputs
 

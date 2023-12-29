@@ -1,7 +1,10 @@
 import numpy as np
 
 from transformers import Pipeline
-from tucore_gcn_transformers.tucore_gcn_bert_tokenizer import SPEAKER_TOKENS, SpeakerBertTokenizer
+from tucore_gcn_transformers.tucore_gcn_bert_tokenizer import (
+    SPEAKER_TOKENS,
+    SpeakerBertTokenizer,
+)
 from tucore_gcn_transformers.tucore_gcn_bert_processor import (
     Conversation,
     SpeakerRelation,
@@ -12,6 +15,7 @@ from itertools import permutations
 import dgl
 import torch.nn.functional as F
 from torch import LongTensor
+
 
 def make_speaker_infor(speaker_id, mention_id):
     tmp = defaultdict(set)
@@ -140,14 +144,14 @@ def mention2mask(mention_id, old_behaviour=False):
 class ConversationalSequenceClassificationPipeline(Pipeline):
     def _sanitize_parameters(self, **kwargs):
         preprocess_kwargs = {}
-        if "tokenizer" in kwargs:
-            preprocess_kwargs["speaker_tokenizer"] = kwargs["tokenizer"]
+        if "n_class" in kwargs:
+            preprocess_kwargs["n_class"] = kwargs["n_class"]
+        if "max_seq_length" in kwargs:
+            preprocess_kwargs["max_seq_length"] = kwargs["max_seq_length"]
         return preprocess_kwargs, {}, {}
 
-    def preprocess(self, conversation: Conversation):
+    def preprocess(self, conversation: Conversation, n_class, max_seq_length):
         speaker_tokenizer = self.tokenizer
-        n_class = 36
-        max_seq_length = 512
         old_behaviour = True
         inputs = conversation.build_inputs(speaker_tokenizer)[0]
         sequence = speaker_tokenizer.tokenize(inputs["dialog"])
@@ -275,25 +279,6 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
             [graph],
         )
 
-    """
-    task: str = None,
-    model: str | PreTrainedModel | TFPreTrainedModel | None = None,
-    config: str | PretrainedConfig | None = None,
-    tokenizer: str | PreTrainedTokenizer | PreTrainedTokenizerFast | None = None,
-    feature_extractor: str | Any | None = None,
-    image_processor: str | BaseImageProcessor | None = None,
-    framework: str | None = None,
-    revision: str | None = None,
-    use_fast: bool = True,
-    token: str | bool | None = None,
-    device: int | str | device | None = None,
-    device_map: Any | None = None,
-    torch_dtype: Any | None = None,
-    trust_remote_code: bool | None = None,
-    model_kwargs: Dict[str, Any] = None,
-    pipeline_class: Any | None = None,
-	"""
-
     def _forward(self, model_inputs):  # model_inputs == {"model_input": model_input}
         (
             tokens,
@@ -322,7 +307,11 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
         logits = model_outputs.logits
         probabilities = F.softmax(logits, dim=1)
         best_class = probabilities.argmax(1)
-        label = [self.model.config.id2label[int(cid.cpu().numpy())] for cid in best_class]
-        score = [probabilities[i][best_class[i]].item() for i in range(len(probabilities))]
+        label = [
+            self.model.config.id2label[int(cid.cpu().numpy())] for cid in best_class
+        ]
+        score = [
+            probabilities[i][best_class[i]].item() for i in range(len(probabilities))
+        ]
         logits = logits.tolist()
         return {"label": label, "score": score, "logits": logits}

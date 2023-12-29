@@ -1,0 +1,32 @@
+{
+	
+	"editor.tokenColorCustomizations": {
+		"textMateRules": [
+			{
+				"scope": [
+					"markup.list.unnumbered.markdown",
+					"punctuation.definition.list.begin.markdown"
+				],
+				"settings": {
+					"foreground": "#d4b3ff"
+				}
+			}
+		],
+		"comments": ""
+	},
+	"hideComments.cleanStart": false,
+	"hideComments.regex": [
+		{
+		  "regex": "# MD ",
+		  "flags": "igm"
+		},
+		{
+			"regex": "#\\s\\[picokatx\\]\\s+\\\"\\\"\\\"",
+			"flags": "igm"
+		},
+		{
+			"regex": "\\\"\\\"\\\"\\s+#\\s\\[picokatx\\]",
+			"flags": "igm"
+		}
+	]
+}
