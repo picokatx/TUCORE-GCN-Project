@@ -14,63 +14,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Example Google style docstrings.
+# MIT License
+#
+# Copyright (c) 2024 picokatx
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
-This module demonstrates documentation as specified by the `Google Python
-Style Guide`_. Docstrings may extend over multiple lines. Sections are created
-with a section header and a colon followed by a block of indented text.
+"""Tokenization classes for TUCORE-GCN
 
-Example:
-    Examples can be given using either the ``Example`` or ``Examples``
-    sections. Sections support any reStructuredText formatting, including
-    literal blocks::
+transformer's BERTTokenizer is not sufficient for handling conversation inputs. This module extends BERTTokenizer's capabilities
+to include special tokenizing behavior when handling speaker tokens.
 
-        $ python example_google.py
+The following are is derived from external sources:
+    The Google AI Language Team Authors and The HuggingFace Inc. team:
+        [class] SpeakerBertTokenizer
 
-Section breaks are created by resuming unindented text. Section breaks
-are also implicitly created anytime a new section starts.
+Original Works:
+   [dataclass] SPEAKER_TOKENS
 
-Attributes:
-    module_level_variable1 (int): Module level variables may be documented in
-        either the ``Attributes`` section of the module docstring, or in an
-        inline docstring immediately following the variable.
-
-        Either form is acceptable, but the two should not be mixed. Choose
-        one convention to document module level variables and be consistent
-        with it.
-
-Todo:
-    * For module TODOs
-    * You have to also use ``sphinx.ext.todo`` extension
-
-.. _Google Python Style Guide:
-   http://google.github.io/styleguide/pyguide.html
-
-"""
-"""
-* The following code is derived from The Google AI Language Team Authors and The
-* HuggingFace Inc. team.
-*    [class] SpeakerBertTokenizer
-* Original Works 
-*    [dataclass] SPEAKER_TOKENS
-* 
+NOTE: Speaker Id as is used here should not be confused with speaker_id. Speaker Id is passed as an input_ids model parameter,
+while speaker_ids is a different parameter and has different token2id mappings
 """
 
 from dataclasses import dataclass
 from transformers.models.bert.tokenization_bert import BertTokenizer
 
-"""
-* **SpeakerBertTokenizer**
-* Original Work
-* 
-* Simple dataclass that handles all speaker token to id mapping. 
-* 
-"""
-
 
 @dataclass
 class SPEAKER_TOKENS:
+    """Mappings for TUCORE-GCN's speaker2token
+
+    TUCORE-GCN implements Speakers's 1-9, and a subject and object speaker, labelled [unused1] and [unused2] in the official
+    repository. Here, we have chosen to use speaker_x and speaker_y for better readability.
+
+    Attributes:
+        SPEAKER_N (str): speaker input id to token mapping
+    """
+
     SPEAKER_1 = "{speaker_1}"
     SPEAKER_2 = "{speaker_2}"
     SPEAKER_3 = "{speaker_3}"
@@ -83,64 +79,62 @@ class SPEAKER_TOKENS:
     SPEAKER_X = "{speaker_x}"
     SPEAKER_Y = "{speaker_y}"
 
-    def is_speaker(token):
-        speaker_tokens = [
-            entry[1]
-            for idx, entry in list(
-                filter(
-                    lambda x: x[1][1] if not x[1][0].startswith("__") else None,
-                    enumerate(SPEAKER_TOKENS.__dict__.items()),
-                )
-            )
-        ]
-        return speaker_tokens.count(token) != 0
-
-    def convert_speaker_to_id(token):
-        speaker_tokens = [
-            entry[1]
-            for idx, entry in list(
-                filter(
-                    lambda x: x[1][1] if not x[1][0].startswith("__") else None,
-                    enumerate(SPEAKER_TOKENS.__dict__.items()),
-                )
-            )
-        ]
-        return speaker_tokens.index(token)
-
-
-"""
-* **SpeakerBertTokenizer**
-* Adapted from transformers library, transformers.models.bert.tokenization_bert.BertTokenizer
-* [https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/tokenization_bert.py]
-* 
-* A Bert Tokenizer.
-* 
-* **Modifications Summary**
-* Added `speaker2id` and `id2speaker` for mapping speaker tokens to the ids used
-* in the official TUCORE-GCN repository. Modified class methods `_tokenize`,
-* `_convert_token_to_id`, `_convert_id_to_token` to treat speaker tokens as
-* special tokens, that cannot be split on and have predefined ids. Due to the
-* original work defining only 9 Speaker tokens, and 2 speakers of interest, we
-* do the same here
-* 
-* **Methods**
-* [func] `__init__`
-*    vocab_file[TUCOREGCN_BertConfig]: Pass in `vocab.txt` packaged with pre-trained BERT from
-*    HuggingFace
-* [func] `_tokenize`
-*    Uses same args as BertTokenizer
-*    Note that `never_split` is deprecated, but still has functionality and is
-*    used for special behaviour with speaker tokens
-* [func] `_convert_token_to_id`,`_convert_id_to_token`
-*    Uses same args as BertTokenizer
-*    ids/tokens are first checked for speakers before anything else is done.
-"""
-
 
 class SpeakerBertTokenizer(BertTokenizer):
+    """BERT Tokenizer with speaker-id mappings
+
+    Adapted from transformers library, transformers.models.bert.tokenization_bert.BertTokenizer
+    [https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/tokenization_bert.py]
+
+    Modifications Summary:
+        Added speaker2id and id2speaker for mapping speaker tokens to the ids use in the official TUCORE-GCN repository.
+        Modified class methods _tokenize, _convert_token_to_id, _convert_id_to_token to treat speaker tokens as special tokens,
+        that cannot be split on and have predefined ids. Due to the original work defining only 9 Speaker tokens, and 2 speakers
+        of interest, we do the same here
+
+    Added/Modified Attributes:
+        speaker2id (:obj:`dict` of `str`,`int`):
+            speaker2id as specified by TUCORE-GCN
+        id2speaker (:obj:`dict` of `int`,`str`):
+            id2speaker as specified by TUCORE-GCN
+
+    Added/Modified Methods:
+        __init__, _tokenize, is_speaker, convert_speaker_to_id, _convert_token_to_id, _convert_id_to_token
+
+    NOTE: self.basic_tokenizer.never_split is deprecated, but still has functionality
+    """
+
+    speaker2id = {
+        SPEAKER_TOKENS.SPEAKER_X: 11,
+        SPEAKER_TOKENS.SPEAKER_Y: 12,
+        SPEAKER_TOKENS.SPEAKER_1: 1,
+        SPEAKER_TOKENS.SPEAKER_2: 2,
+        SPEAKER_TOKENS.SPEAKER_3: 3,
+        SPEAKER_TOKENS.SPEAKER_4: 4,
+        SPEAKER_TOKENS.SPEAKER_5: 5,
+        SPEAKER_TOKENS.SPEAKER_6: 6,
+        SPEAKER_TOKENS.SPEAKER_7: 7,
+        SPEAKER_TOKENS.SPEAKER_8: 8,
+        SPEAKER_TOKENS.SPEAKER_9: 9,
+    }
+
+    id2speaker = {
+        "11": SPEAKER_TOKENS.SPEAKER_X,
+        "12": SPEAKER_TOKENS.SPEAKER_Y,
+        "1": SPEAKER_TOKENS.SPEAKER_1,
+        "2": SPEAKER_TOKENS.SPEAKER_2,
+        "3": SPEAKER_TOKENS.SPEAKER_3,
+        "4": SPEAKER_TOKENS.SPEAKER_4,
+        "5": SPEAKER_TOKENS.SPEAKER_5,
+        "6": SPEAKER_TOKENS.SPEAKER_6,
+        "7": SPEAKER_TOKENS.SPEAKER_7,
+        "8": SPEAKER_TOKENS.SPEAKER_8,
+        "9": SPEAKER_TOKENS.SPEAKER_9,
+    }
+
     def __init__(
         self,
-        vocab_file,
+        vocab_file: str,
         do_lower_case=True,
         do_basic_tokenize=True,
         never_split=None,
@@ -150,9 +144,52 @@ class SpeakerBertTokenizer(BertTokenizer):
         cls_token="[CLS]",
         mask_token="[MASK]",
         tokenize_chinese_chars=True,
-        strip_accents=None,
+        strip_accents: bool = None,
         **kwargs,
     ):
+        """SpeakerBertTokenizer Constructor
+
+        Added speaker2id to self.basic_tokenizer.never_split, preventing BertTokenizer's internal tokenizer from splitting
+        speaker tokens.
+
+        Transformers Docstring:
+            Construct a BERT tokenizer. Based on WordPiece.
+
+            This tokenizer inherits from [`PreTrainedTokenizer`] which contains most of the main methods. Users should refer to
+            this superclass for more information regarding those methods.
+
+        Args:
+            vocab_file (`str`):
+                File containing the vocabulary.
+            do_lower_case (`bool`, *optional*, defaults to `True`):
+                Whether or not to lowercase the input when tokenizing.
+            do_basic_tokenize (`bool`, *optional*, defaults to `True`):
+                Whether or not to do basic tokenization before WordPiece.
+            never_split (`Iterable`, *optional*):
+                Collection of tokens which will never be split during tokenization. Only has an effect when
+                `do_basic_tokenize=True`
+            unk_token (`str`, *optional*, defaults to `"[UNK]"`):
+                The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
+                token instead.
+            sep_token (`str`, *optional*, defaults to `"[SEP]"`):
+                The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences for
+                sequence classification or for a text and a question for question answering. It is also used as the last token
+                of a sequence built with special tokens.
+            pad_token (`str`, *optional*, defaults to `"[PAD]"`):
+                The token used for padding, for example when batching sequences of different lengths.
+            cls_token (`str`, *optional*, defaults to `"[CLS]"`):
+                The classifier token which is used when doing sequence classification (classification of the whole sequence
+                instead of per-token classification). It is the first token of the sequence when built with special tokens.
+            mask_token (`str`, *optional*, defaults to `"[MASK]"`):
+                The token used for masking values. This is the token used when training this model with masked language
+                modeling. This is the token which the model will try to predict.
+            tokenize_chinese_chars (`bool`, *optional*, defaults to `True`):
+                Whether or not to tokenize Chinese characters. This should likely be deactivated for Japanese (see this
+                [issue](https://github.com/huggingface/transformers/issues/328)).
+            strip_accents (`bool`, *optional*):
+                Whether or not to strip all accents. If this option is not specified, then it will be determined by the value
+                for `lowercase` (as in the original BERT).
+        """
         super().__init__(
             vocab_file,
             do_lower_case,
@@ -167,43 +204,30 @@ class SpeakerBertTokenizer(BertTokenizer):
             strip_accents,
             **kwargs,
         )
-        self.speaker2id = {
-            SPEAKER_TOKENS.SPEAKER_X: 11,
-            SPEAKER_TOKENS.SPEAKER_Y: 12,
-            SPEAKER_TOKENS.SPEAKER_1: 1,
-            SPEAKER_TOKENS.SPEAKER_2: 2,
-            SPEAKER_TOKENS.SPEAKER_3: 3,
-            SPEAKER_TOKENS.SPEAKER_4: 4,
-            SPEAKER_TOKENS.SPEAKER_5: 5,
-            SPEAKER_TOKENS.SPEAKER_6: 6,
-            SPEAKER_TOKENS.SPEAKER_7: 7,
-            SPEAKER_TOKENS.SPEAKER_8: 8,
-            SPEAKER_TOKENS.SPEAKER_9: 9,
-        }
-
-        self.id2speaker = {
-            "11": SPEAKER_TOKENS.SPEAKER_X,
-            "12": SPEAKER_TOKENS.SPEAKER_Y,
-            "1": SPEAKER_TOKENS.SPEAKER_1,
-            "2": SPEAKER_TOKENS.SPEAKER_2,
-            "3": SPEAKER_TOKENS.SPEAKER_3,
-            "4": SPEAKER_TOKENS.SPEAKER_4,
-            "5": SPEAKER_TOKENS.SPEAKER_5,
-            "6": SPEAKER_TOKENS.SPEAKER_6,
-            "7": SPEAKER_TOKENS.SPEAKER_7,
-            "8": SPEAKER_TOKENS.SPEAKER_8,
-            "9": SPEAKER_TOKENS.SPEAKER_9,
-        }
         self.basic_tokenizer.never_split = set(
             self.all_special_tokens + list(self.speaker2id.keys())
         )
 
-    def _tokenize(self, text, split_special_tokens=False):
+    def _tokenize(self, text: str, split_special_tokens=False):
+        """BertTokenizer's internal tokenize method
+
+        Added speaker2id to self.basic_tokenizer.never_split, preventing BertTokenizer's internal tokenizer from splitting
+        speaker tokens.
+
+        Args:
+            text (`str`):
+                Text to be tokenized
+            split_special_tokens (`bool`):
+                Whether whitespace tokenizing should be performed on special tokens like [CLS], [SEP], etc. Special Tokens are
+                defined in self.all_special_tokens
+        """
         split_tokens = []
         if self.do_basic_tokenize:
             for token in self.basic_tokenizer.tokenize(
                 text,
-                never_split=set(self.all_special_tokens + list(self.speaker2id.keys())),
+                never_split=set(self.all_special_tokens + list(self.speaker2id.keys()))
+                if not split_special_tokens
+                else None,
             ):
                 # If the token is part of the never_split set
                 if token in self.basic_tokenizer.never_split:
@@ -214,15 +238,29 @@ class SpeakerBertTokenizer(BertTokenizer):
             split_tokens = self.wordpiece_tokenizer.tokenize(text)
         return split_tokens
 
+    def is_speaker(self, token):
+        """Check if the token matches a pre-defined speaker in speaker2id"""
+        return token in self.speaker2id
+
+    def convert_speaker_to_id(self, token):
+        """Convert token to a pre-defined speaker using speaker2id"""
+        return self.speaker2id[token]
+
     def _convert_token_to_id(self, token):
-        """Converts a token (str) in an id using the vocab."""
+        """Converts a token (str) in an id using the vocab.
+
+        If the token maps to a valid speaker, it is converted to its respective speaker id instead.
+        """
         if token in self.speaker2id:
             return self.speaker2id[token]
         else:
             return self.vocab.get(token, self.vocab.get(self.unk_token))
 
     def _convert_id_to_token(self, index):
-        """Converts an index (integer) in a token (str) using the vocab."""
+        """Converts an index (integer) in a token (str) using the vocab.
+
+        If the id maps to a speaker, it is converted to its respective speaker token instead.
+        """
         if str(index) in self.id2speaker:
             return self.speaker2id[str(index)]
         else:

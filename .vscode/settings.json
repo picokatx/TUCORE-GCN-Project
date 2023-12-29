@@ -3,17 +3,15 @@
 	"editor.tokenColorCustomizations": {
 		"textMateRules": [
 			{
-				"scope": [
-					"markup.list.unnumbered.markdown",
-					"punctuation.definition.list.begin.markdown"
-				],
+				"scope": "string.quoted.docstring.multi.python",
 				"settings": {
-					"foreground": "#d4b3ff"
+					"foreground": "#cd91ff",
+					"fontStyle": "bold"
 				}
 			}
-		],
-		"comments": ""
+		]
 	},
+	"rewrap.wrappingColumn": 128,
 	"hideComments.cleanStart": false,
 	"hideComments.regex": [
 		{

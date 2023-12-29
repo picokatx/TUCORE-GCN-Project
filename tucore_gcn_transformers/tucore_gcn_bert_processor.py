@@ -57,19 +57,43 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""
-* The following code is derived from The Google AI Language Team Authors and The
-* HuggingFace Inc. team.
-*    [class] Conversation
-* The following code is derived from The HuggingFace Datasets Authors and the
-* current dataset script contributor. The contributors can be found here:
-* [https://huggingface.co/datasets/dialog_re] [https://github.com/vineeths96]
-*    [class] DialogREConfig
-*    [class] DialogRE
-* Original Works 
-*    [class] SpeakerRelation
-*    [dataclass] Message
-* 
+# MIT License
+# 
+# Copyright (c) 2024 picokatx
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+""" Processing code for DialogRE-formatted datasets
+
+The following code is derived from The Google AI Language Team Authors and The
+HuggingFace Inc. team, Bongseok Lee
+   [class] Conversation
+The following code is derived from The HuggingFace Datasets Authors and the
+current dataset script contributor. The contributors can be found here:
+[https://huggingface.co/datasets/dialog_re] [https://github.com/vineeths96]
+   [class] DialogREConfig
+   [class] DialogRE
+Original Works 
+   [class] SpeakerRelation
+   [dataclass] Message
+
+
 """
 
 from dataclasses import dataclass
@@ -134,7 +158,7 @@ class SpeakerRelation:
     speaker_y: str
     rid: List[int]
 
-    def __init__(self, speaker_x, speaker_y, rid=[37]) -> None:
+    def __init__(self, speaker_x:str, speaker_y:str, rid:List[int]=[37]) -> None:
         self.speaker_x = speaker_x
         self.speaker_y = speaker_y
         self.rid = rid

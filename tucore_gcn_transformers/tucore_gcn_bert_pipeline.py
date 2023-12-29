@@ -192,8 +192,8 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
         current_speaker_id = 0
         current_speaker_idx = 0
         for token in sequence:
-            if SPEAKER_TOKENS.is_speaker(token):
-                current_speaker_id = SPEAKER_TOKENS.convert_speaker_to_id(token)
+            if speaker_tokenizer.is_speaker(token):
+                current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
                 current_speaker_idx += 1
             input_speaker_ids.append(current_speaker_id)
             input_mention_ids.append(current_speaker_idx)
@@ -202,10 +202,10 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
                 [0]
                 + input_speaker_ids
                 + [0]
-                + [SPEAKER_TOKENS.convert_speaker_to_id(inputs["relation"].speaker_x)]
+                + [speaker_tokenizer.convert_speaker_to_id(inputs["relation"].speaker_x)]
                 * len(speaker_x)
                 + [0]
-                + [SPEAKER_TOKENS.convert_speaker_to_id(inputs["relation"].speaker_y)]
+                + [speaker_tokenizer.convert_speaker_to_id(inputs["relation"].speaker_y)]
                 * len(speaker_y)
                 + [0]
             )
