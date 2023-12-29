@@ -34,19 +34,19 @@
 # dataset is intended for non-commercial research purpose only.
 
 # MIT License
-# 
+#
 # Copyright (c) 2021 Bongseok Lee
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -56,19 +56,19 @@
 # SOFTWARE.
 
 # MIT License
-# 
+#
 # Copyright (c) 2024 picokatx
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -146,105 +146,93 @@ _URLs = {
     "test": _URL + "test.json",
 }
 
-"""
-* **SpeakerRelation**
-* Original Work
-* 
-* dataclass containing speaker pairs and a relation id, as described by DialogRE
-* 
-"""
 
 class SpeakerRelation:
     """Speaker Relation dataclass
 
-    TUCORE-GCN implements Speakers's 1-9, and a subject/object entity, labelled [unused1] and [unused2] in the official
-    repository. Here, we have chosen to use speaker_x and speaker_y for better readability.
+    TUCORE-GCN implements a subject/object entity, labelled [unused1] and [unused2] in the official TUCORE-GCN repository,
+    following {Dian Yu, Kai Sun, Claire Cardie, and Dong Yu. 2020, Dialogue-based relation extraction. In Proceedings of the
+    58th Annual Meeting of the Association for Computational Linguistics}. Here, we have chosen to use entity_1 and entity_2 for
+    better readability.
+
+    DialogRE labels relations between entity_1 and entity_2 with a relations id. entities can have more than 1 relation at a
+    time. Here, we store relation ids as a list
 
     Attributes:
-        speaker_x (str): 1st object/subject entity
-        speaker_y (str): 2st object/subject entity
-        rid (List[int]): speaker input id to token mapping
+        entity_1 (str):
+            1st object/subject entity
+        entity_2 (str):
+            2st object/subject entity
+        rid (List[int]):
+            speaker input id totoken mapping
     """
+
     entity_1: str
     entity_2: str
     rid: List[int]
 
-    def __init__(self, entity_1:str, entity_2:str, rid:List[int]=[37]) -> None:
+    def __init__(self, entity_1: str, entity_2: str, rid: List[int] = [37]):
         self.entity_1 = entity_1
         self.entity_2 = entity_2
         self.rid = rid
 
-"""
-* **Message**
-* Original Work
-* 
-* dataclass containing speaker dialog mappings
-* 
-"""
 
 @dataclass
 class Message:
     speaker: str
     dialog: str
 
+
+"""f
+Methods
+[func] `__init__`
+messages (Union[str, List[str], List[Message]]): Messages comprising the conversation. Converts any input to the
+format `speaker`: `message`. Ex: `["Speaker 1: Hi!", "Speaker 2: Hi!"]`
+[func] `is_speaker`
+Checks if input string s has the formatting `speaker X` where X is any digit
+[func] `rename` 
+dialog (List[str]): 
+relation (SpeakerRelation): 
+[func] `_convert_token_to_id`,`_convert_id_to_token`
 """
-* **Conversation**
-* Adapted from transformers library, transformers.pipelines.conversational.Conversation
-* [https://github.com/huggingface/transformers/blob/main/src/transformers/pipelines/conversational.py]
-* and from the official TUCORE-GCN repository
-* [https://github.com/BlackNoodle/TUCORE-GCN]
-* Describes a TUCORE-GCN compatible conversation. Manages a conversation
-* repository, and provides utility functions for converting dialog-relation
-* pairs to inputs for preprocessing.
-* 
-* **Modifications Summary**
-* Adapted `is_speaker`, `rename`, `build_input_with_relation`, `build_inputs`
-* from [https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py] 
-* 
-* **Methods**
-* [func] `__init__`
-*    messages (Union[str, List[str], List[Message]]): Messages comprising the conversation. Converts any input to the
-*    format `speaker`: `message`. Ex: `["Speaker 1: Hi!", "Speaker 2: Hi!"]`
-* [func] `is_speaker`
-*    Checks if input string s has the formatting `speaker X` where X is any digit
-* [func] `rename` 
-*    dialog (List[str]): 
-*    relation (SpeakerRelation): 
-* [func] `_convert_token_to_id`,`_convert_id_to_token`
-* Usage:
-* ```js
-  new_conversation = Conversation(
-      messages=[
-          Message("Speaker 1", "Howdy! I'm Flowey, Flowey the Flower!"),
-          Message("Speaker 2", "Hello Flowey. I'm your very best friend!"),
-      ],
-      speaker_relations=[
-          SpeakerRelation("Speaker 1", "Speaker 2")
-      ]
-  )
-* ```
-"""
+
 
 class Conversation:
-    """
-    Utility class containing a conversation and its history. This class is meant to be used as an input to the
-    [`ConversationalPipeline`]. The conversation contains several utility functions to manage the addition of new user
-    inputs and generated model responses.
+    """Utility class containing a conversation between speakers, and relations between entities.
+
+    Adapted from transformers library, transformers.pipelines.conversational.Conversation
+    [https://github.com/huggingface/transformers/blob/main/src/transformers/pipelines/conversational.py] and from the official
+    TUCORE-GCN repository [https://github.com/BlackNoodle/TUCORE-GCN]
+
+    Describes a TUCORE-GCN compatible conversation. Manages a conversation repository, and provides utility functions for
+    converting dialog-relation pairs to inputs for preprocessing.
 
     Arguments:
-            messages (Union[str, List[Dict[str, str]]], *optional*):
-                    The initial messages to start the conversation, either a string, or a list of dicts containing "role" and
-                    "content" keys. If a string is passed, it is interpreted as a single message with the "user" role.
-            conversation_id (`uuid.UUID`, *optional*):
-                    Unique identifier for the conversation. If not provided, a random UUID4 id will be assigned to the
-                    conversation.
+        messages (str|:obj:`list` of `str`|:obj:`list` of `Message`, *optional*):
+                The initial messages to start the conversation, either a string, a list of strings, or a list of Message objects
+                containing "speaker" and "dialog" attributes. All inputs are converted into the format `speaker`: `dialog`. Ex:
+                `["Speaker 1: Hi!", "Speaker 2: Hey!"]`. NOTE: Speaker names must be labelled as "Speaker_N" for now.
+        speaker_relations (:obj:`list` of `str`):
+                A list of speaker relations between entities in the conversation.
+        conversation_id (`uuid.UUID`, *optional*):
+                Unique identifier for the conversation. If not provided, a random UUID4 id will be assigned to the conversation.
+
+    Modifications Summary:
+        Adapted `is_speaker`, `rename`, `build_input_with_relation`, `build_inputs` from
+        [https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py]. Modified Conversation constructor to be TUCORE-GCN input
+        compatible
 
     Usage:
 
     ```python
-    conversation = Conversation("Going to the movies tonight - any suggestions?")
-    conversation.add_message({"role": "assistant", "content": "The Big lebowski."})
-    conversation.add_message({"role": "user", "content": "Is it good?"})
+    new_conversation = Conversation(
+        messages=[
+            Message("Speaker 1", "Howdy! I'm Flowey, Flowey the Flower!"), Message("Speaker 2", "Hello Flowey. I'm your very
+            best friend!"),
+        ], speaker_relations=[
+            SpeakerRelation("Speaker 1", "Speaker 2")
+        ]
+    )
     ```
     """
 
@@ -291,15 +279,16 @@ class Conversation:
         return len(self.messages)
 
     def __repr__(self):
-        """
-        Generates a string representation of the conversation.
+        """Generates a string representation of the conversation.
 
         Returns:
                 `str`:
 
         Example:
                 Conversation id: 7d15686b-dc94-49f2-9c4b-c9eac6a1f114 user: Going to the movies tonight - any suggestions?
-                bot: The Big Lebowski
+                Relations: [SpeakerRelation(entity_1="speaker_1",entity_2="Alice",rid=[3])]
+                speaker_1: Hello!
+                speaker_2: Hello!!!!!
         """
         output = f"Conversation id: {self.uuid}\n"
         output += f"Relations: {self.speaker_relations}\n"
@@ -312,15 +301,40 @@ class Conversation:
         return len(s) == 2 and s[0] == "Speaker" and s[1].isdigit()
 
     def build_input_with_relation(
-        self, relation, tokenizer, max_length=512, for_f1c=False
+        self, relation, tokenizer, max_seq_length=512, for_f1c=False
     ):
-        '''
-        if for_f1c:
-            for l in range(1, len(self.messages)+1):
-            dialog, relation = self.rename(self.messages[:l], relation)
-        else:
-            dialog, relation = self.rename(self.messages, relation
-        '''
+        """Builds TUCORE-GCN compatible inputs
+
+        Adapted from https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py
+
+        Converts conversation to stringified dialogs with entity names replaced with identifier tokens based on provided
+        relation. The conversation is truncated to the last possible dialog where the total tokens in final model input would be
+        less than or equal to max_seq_length.
+
+        Arguments:
+            relation (:obj:`SpeakerRelation`):
+                    relation to stringify conversation with.
+            tokenizer (:obj:`SpeakerBertTokenizer`):
+                    Tokenizer used for checking total tokens
+            max_seq_length (`uuid.UUID`, *optional*):
+                    maxiumum tokens allowed in sequence. Inputs will be padded to this length
+
+        Returns:
+            dialog (`str`):
+                Dtringified dialogs with entity names replaced with identifier tokens.
+            relation (:obj:`SpeakerRelation`):
+                Entity names in relation will additionally be replace with identifier tokens.
+
+        Usage:
+
+        ```python
+        >>> ret_dialog, ret_relation = conversation.build_input_with_relation(relation, speaker_tokenizer).values()
+        >>> ret_dialog
+        "{entity_1}Hi!\n{speaker_2}Hello {entity_2}!"
+        >>> ret_relation
+        SpeakerRelation(entity_1="{entity_1}",entity_2="{entity_2}",rid=[3])
+        ```
+        """
         dialog_raw = self.messages
         ret_relation = SpeakerRelation(
             relation.entity_1, relation.entity_2, relation.rid
@@ -328,7 +342,7 @@ class Conversation:
         soi = [
             SPEAKER_TOKENS.ENTITY_1,
             SPEAKER_TOKENS.ENTITY_2,
-        ]  # speaker_of_interest
+        ]
         ret_dialog = []
         a = []
         if self.is_speaker(relation.entity_1):
@@ -372,7 +386,7 @@ class Conversation:
             line_len = len(tokenizer.tokenize(line))
             if (
                 count + line_len + len(speaker_x_tokens) + len(speaker_y_tokens) + 4
-                > max_length
+                > max_seq_length
             ):
                 break
             count += line_len
@@ -382,7 +396,32 @@ class Conversation:
             "relation": relation,
         }
 
-    def build_inputs(self, tokenizer, max_length=512, for_f1c=False):
+    def build_inputs(self, tokenizer, max_seq_length=512, for_f1c=False):
+        """Builds TUCORE-GCN compatible inputs
+
+        Adapted from https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py
+
+        Runs build_input_with_relation for all relations to obtain a list of stringified dialogs.
+
+        Arguments:
+            tokenizer (:obj:`SpeakerBertTokenizer`):
+                    Tokenizer used for checking total tokens
+            max_seq_length (`uuid.UUID`, *optional*):
+                    maxiumum tokens allowed in sequence. Inputs will be padded to this length
+
+        Returns:
+            List of dialog, relation from build_input_with_relation
+
+        Usage:
+
+        ```python
+        >>> dialogs = conversation.build_input_with_relation(relation, speaker_tokenizer).values()
+        >>> dialogs[0]['dialog']
+        "{entity_1}Hi!\n{speaker_2}Hello {entity_2}!"
+        >>> dialogs[0]['relation']
+        SpeakerRelation(entity_1="{entity_1}",entity_2="{entity_2}",rid=[3])
+        ```
+        """
         ret = []
         speaker_relations_iterator = enumerate(self.speaker_relations)
         while True:
@@ -390,7 +429,7 @@ class Conversation:
             if idx == -1:
                 break
             ret_dialog, ret_relation = self.build_input_with_relation(
-                relation, tokenizer, max_length, for_f1c
+                relation, tokenizer, max_seq_length, for_f1c
             ).values()
             if ret_dialog != "":
                 ret.append(
@@ -414,7 +453,15 @@ class DialogREConfig(datasets.BuilderConfig):
 
 
 class DialogRE(datasets.GeneratorBasedBuilder):
-    """DialogRE: Human-annotated dialogue-based relation extraction dataset Version 2"""
+    """DialogRE: Human-annotated dialogue-based relation extraction dataset Version 2
+
+    Adapted from https://huggingface.co/datasets/dialog_re, https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py
+
+    Dataset Loader for DialogRE
+
+    Modifications Summary:
+        Added preprocessing to _generate_examples.
+    """
 
     VERSION = datasets.Version("1.1.0")
 
@@ -490,8 +537,7 @@ class DialogRE(datasets.GeneratorBasedBuilder):
             **prepare_splits_kwargs,
         )
 
-    # _get_examples_iterable_for_split
-    def _generate_examples(self, filepath, split, max_length=512, for_f1c=False):
+    def _generate_examples(self, filepath, split, max_seq_length=512, for_f1c=False):
         """Yields examples."""
         speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
         with open(filepath, encoding="utf-8") as f:
@@ -512,7 +558,7 @@ class DialogRE(datasets.GeneratorBasedBuilder):
                     if idx == -1:
                         break
                     ret_dialog, ret_relation = c.build_input_with_relation(
-                        relation, speaker_tokenizer, max_length, for_f1c
+                        relation, speaker_tokenizer, max_seq_length, for_f1c
                     ).values()
                     if ret_dialog != "":
                         yield idx, {

@@ -79,10 +79,16 @@ class SPEAKER_TOKENS:
 
 
 class SpeakerBertTokenizer(BertTokenizer):
-    """BERT Tokenizer with speaker-id mappings
+    """BERT Tokenizer with speaker-id mappings. Based on WordPiece.
 
     Adapted from transformers library, transformers.models.bert.tokenization_bert.BertTokenizer
     [https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/tokenization_bert.py]
+
+    This tokenizer inherits from [`PreTrainedTokenizer`] which contains most of the main methods. Users should refer to
+    this superclass for more information regarding those methods.
+
+    Added speaker2id to self.basic_tokenizer.never_split, preventing BertTokenizer's internal tokenizer from splitting speaker
+    tokens.
 
     Modifications Summary:
         Added speaker2id and id2speaker for mapping speaker tokens to the ids use in the official TUCORE-GCN repository.
@@ -99,12 +105,43 @@ class SpeakerBertTokenizer(BertTokenizer):
     Added/Modified Methods:
         __init__, _tokenize, is_speaker, convert_speaker_to_id, _convert_token_to_id, _convert_id_to_token
 
+    Arguments:
+        vocab_file (`str`):
+            File containing the vocabulary.
+        do_lower_case (`bool`, *optional*, defaults to `True`):
+            Whether or not to lowercase the input when tokenizing.
+        do_basic_tokenize (`bool`, *optional*, defaults to `True`):
+            Whether or not to do basic tokenization before WordPiece.
+        never_split (`Iterable`, *optional*):
+            Collection of tokens which will never be split during tokenization. Only has an effect when `do_basic_tokenize=True`
+        unk_token (`str`, *optional*, defaults to `"[UNK]"`):
+            The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this token
+            instead.
+        sep_token (`str`, *optional*, defaults to `"[SEP]"`):
+            The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences for sequence
+            classification or for a text and a question for question answering. It is also used as the last token of a sequence
+            built with special tokens.
+        pad_token (`str`, *optional*, defaults to `"[PAD]"`):
+            The token used for padding, for example when batching sequences of different lengths.
+        cls_token (`str`, *optional*, defaults to `"[CLS]"`):
+            The classifier token which is used when doing sequence classification (classification of the whole sequence instead
+            of per-token classification). It is the first token of the sequence when built with special tokens.
+        mask_token (`str`, *optional*, defaults to `"[MASK]"`):
+            The token used for masking values. This is the token used when training this model with masked language modeling.
+            This is the token which the model will try to predict.
+        tokenize_chinese_chars (`bool`, *optional*, defaults to `True`):
+            Whether or not to tokenize Chinese characters. This should likely be deactivated for Japanese (see this
+            [issue](https://github.com/huggingface/transformers/issues/328)).
+        strip_accents (`bool`, *optional*):
+            Whether or not to strip all accents. If this option is not specified, then it will be determined by the value for
+            `lowercase` (as in the original BERT).
+
     Usage:
 
     ```python
     >>> tokenizer = SpeakerBertTokenizer.from_pretrained('bert-base-uncased')
     >>> tokenizer.tokenize("speaker_1: lorem, ipsum docet?")
-    >>> ['{speaker_1}', 'lorem', ',', 'ipsum', 'docet', '?']
+    ['{speaker_1}', 'lorem', ',', 'ipsum', 'docet', '?']
     ```
 
     NOTE: self.basic_tokenizer.never_split is deprecated, but still has functionality
@@ -153,46 +190,6 @@ class SpeakerBertTokenizer(BertTokenizer):
         strip_accents: bool = None,
         **kwargs,
     ):
-        """Construct a BERT tokenizer. Based on WordPiece.
-
-        This tokenizer inherits from [`PreTrainedTokenizer`] which contains most of the main methods. Users should refer to
-        this superclass for more information regarding those methods.
-
-        Added speaker2id to self.basic_tokenizer.never_split, preventing BertTokenizer's internal tokenizer from splitting
-        speaker tokens.
-
-        Args:
-            vocab_file (`str`):
-                File containing the vocabulary.
-            do_lower_case (`bool`, *optional*, defaults to `True`):
-                Whether or not to lowercase the input when tokenizing.
-            do_basic_tokenize (`bool`, *optional*, defaults to `True`):
-                Whether or not to do basic tokenization before WordPiece.
-            never_split (`Iterable`, *optional*):
-                Collection of tokens which will never be split during tokenization. Only has an effect when
-                `do_basic_tokenize=True`
-            unk_token (`str`, *optional*, defaults to `"[UNK]"`):
-                The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
-                token instead.
-            sep_token (`str`, *optional*, defaults to `"[SEP]"`):
-                The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences for
-                sequence classification or for a text and a question for question answering. It is also used as the last token
-                of a sequence built with special tokens.
-            pad_token (`str`, *optional*, defaults to `"[PAD]"`):
-                The token used for padding, for example when batching sequences of different lengths.
-            cls_token (`str`, *optional*, defaults to `"[CLS]"`):
-                The classifier token which is used when doing sequence classification (classification of the whole sequence
-                instead of per-token classification). It is the first token of the sequence when built with special tokens.
-            mask_token (`str`, *optional*, defaults to `"[MASK]"`):
-                The token used for masking values. This is the token used when training this model with masked language
-                modeling. This is the token which the model will try to predict.
-            tokenize_chinese_chars (`bool`, *optional*, defaults to `True`):
-                Whether or not to tokenize Chinese characters. This should likely be deactivated for Japanese (see this
-                [issue](https://github.com/huggingface/transformers/issues/328)).
-            strip_accents (`bool`, *optional*):
-                Whether or not to strip all accents. If this option is not specified, then it will be determined by the value
-                for `lowercase` (as in the original BERT).
-        """
         super().__init__(
             vocab_file,
             do_lower_case,
@@ -217,12 +214,14 @@ class SpeakerBertTokenizer(BertTokenizer):
         Added speaker2id to self.basic_tokenizer.never_split, preventing BertTokenizer's internal tokenizer from splitting
         speaker tokens.
 
-        Args:
+        Arguments:
             text (`str`):
                 Text to be tokenized
             split_special_tokens (`bool`):
                 Whether whitespace tokenizing should be performed on special tokens like [CLS], [SEP], etc. Special Tokens are
                 defined in self.all_special_tokens
+        Returns:
+            split_tokens (:obj:`list` of `str`): List of parsed tokens
         """
         split_tokens = []
         if self.do_basic_tokenize:
