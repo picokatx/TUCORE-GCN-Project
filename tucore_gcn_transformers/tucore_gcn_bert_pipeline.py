@@ -155,8 +155,8 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
         old_behaviour = True
         inputs = conversation.build_inputs(speaker_tokenizer)[0]
         sequence = speaker_tokenizer.tokenize(inputs["dialog"])
-        speaker_x = speaker_tokenizer.tokenize(inputs["relation"].speaker_x)
-        speaker_y = speaker_tokenizer.tokenize(inputs["relation"].speaker_y)
+        speaker_x = speaker_tokenizer.tokenize(inputs["relation"].entity_1)
+        speaker_y = speaker_tokenizer.tokenize(inputs["relation"].entity_2)
 
         tokens = (
             ["[CLS]"]
@@ -202,10 +202,10 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
                 [0]
                 + input_speaker_ids
                 + [0]
-                + [speaker_tokenizer.convert_speaker_to_id(inputs["relation"].speaker_x)]
+                + [speaker_tokenizer.convert_speaker_to_id(inputs["relation"].entity_1)]
                 * len(speaker_x)
                 + [0]
-                + [speaker_tokenizer.convert_speaker_to_id(inputs["relation"].speaker_y)]
+                + [speaker_tokenizer.convert_speaker_to_id(inputs["relation"].entity_2)]
                 * len(speaker_y)
                 + [0]
             )

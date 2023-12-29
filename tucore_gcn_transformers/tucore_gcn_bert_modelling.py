@@ -1522,7 +1522,7 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
             "speaker",
             "dialog",
             "entity",
-        ]  # entity: object node as defined in paper
+        ]  # entity: object/subject node as defined in paper
         self.GCN_layers = nn.ModuleList(
             [
                 RelGraphConvLayer(

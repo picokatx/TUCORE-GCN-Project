@@ -1,5 +1,3 @@
-# coding=utf-8
-
 # Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,10 +41,10 @@ to include special tokenizing behavior when handling speaker tokens.
 
 The following are is derived from external sources:
     The Google AI Language Team Authors and The HuggingFace Inc. team:
-        [class] SpeakerBertTokenizer
+        - [class] SpeakerBertTokenizer
 
 Original Works:
-   [dataclass] SPEAKER_TOKENS
+   - [dataclass] SPEAKER_TOKENS
 
 NOTE: Speaker Id as is used here should not be confused with speaker_id. Speaker Id is passed as an input_ids model parameter,
 while speaker_ids is a different parameter and has different token2id mappings
@@ -76,8 +74,8 @@ class SPEAKER_TOKENS:
     SPEAKER_7 = "{speaker_7}"
     SPEAKER_8 = "{speaker_8}"
     SPEAKER_9 = "{speaker_9}"
-    SPEAKER_X = "{speaker_x}"
-    SPEAKER_Y = "{speaker_y}"
+    ENTITY_1 = "{entity_1}"
+    ENTITY_2 = "{entity_2}"
 
 
 class SpeakerBertTokenizer(BertTokenizer):
@@ -101,12 +99,20 @@ class SpeakerBertTokenizer(BertTokenizer):
     Added/Modified Methods:
         __init__, _tokenize, is_speaker, convert_speaker_to_id, _convert_token_to_id, _convert_id_to_token
 
+    Usage:
+
+    ```python
+    >>> tokenizer = SpeakerBertTokenizer.from_pretrained('bert-base-uncased')
+    >>> tokenizer.tokenize("speaker_1: lorem, ipsum docet?")
+    >>> ['{speaker_1}', 'lorem', ',', 'ipsum', 'docet', '?']
+    ```
+
     NOTE: self.basic_tokenizer.never_split is deprecated, but still has functionality
     """
 
     speaker2id = {
-        SPEAKER_TOKENS.SPEAKER_X: 11,
-        SPEAKER_TOKENS.SPEAKER_Y: 12,
+        SPEAKER_TOKENS.ENTITY_1: 11,
+        SPEAKER_TOKENS.ENTITY_2: 12,
         SPEAKER_TOKENS.SPEAKER_1: 1,
         SPEAKER_TOKENS.SPEAKER_2: 2,
         SPEAKER_TOKENS.SPEAKER_3: 3,
@@ -119,8 +125,8 @@ class SpeakerBertTokenizer(BertTokenizer):
     }
 
     id2speaker = {
-        "11": SPEAKER_TOKENS.SPEAKER_X,
-        "12": SPEAKER_TOKENS.SPEAKER_Y,
+        "11": SPEAKER_TOKENS.ENTITY_1,
+        "12": SPEAKER_TOKENS.ENTITY_2,
         "1": SPEAKER_TOKENS.SPEAKER_1,
         "2": SPEAKER_TOKENS.SPEAKER_2,
         "3": SPEAKER_TOKENS.SPEAKER_3,
@@ -147,16 +153,13 @@ class SpeakerBertTokenizer(BertTokenizer):
         strip_accents: bool = None,
         **kwargs,
     ):
-        """SpeakerBertTokenizer Constructor
+        """Construct a BERT tokenizer. Based on WordPiece.
+
+        This tokenizer inherits from [`PreTrainedTokenizer`] which contains most of the main methods. Users should refer to
+        this superclass for more information regarding those methods.
 
         Added speaker2id to self.basic_tokenizer.never_split, preventing BertTokenizer's internal tokenizer from splitting
         speaker tokens.
-
-        Transformers Docstring:
-            Construct a BERT tokenizer. Based on WordPiece.
-
-            This tokenizer inherits from [`PreTrainedTokenizer`] which contains most of the main methods. Users should refer to
-            this superclass for more information regarding those methods.
 
         Args:
             vocab_file (`str`):

@@ -1,5 +1,3 @@
-# coding=utf-8
-
 # Copyright 2020 The HuggingFace Datasets Authors and the current dataset script contributor.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -79,21 +77,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-""" Processing code for DialogRE-formatted datasets
+"""Processing code for DialogRE-formatted datasets
 
-The following code is derived from The Google AI Language Team Authors and The
-HuggingFace Inc. team, Bongseok Lee
-   [class] Conversation
-The following code is derived from The HuggingFace Datasets Authors and the
-current dataset script contributor. The contributors can be found here:
-[https://huggingface.co/datasets/dialog_re] [https://github.com/vineeths96]
-   [class] DialogREConfig
-   [class] DialogRE
-Original Works 
-   [class] SpeakerRelation
-   [dataclass] Message
+DialogRE is a human annotated dialogue-based relation extraction dataset. Existing DialogRE dataset loaders are insufficient for
+project development. This module extends a pre-existing dataset loader from HuggingFace to add preprocessing capabilities for
+model inputs
 
+The following code is derived from external sources:
+    The Google AI Language Team Authors and The HuggingFace Inc. team, Bongseok Lee:
+        - [class] Conversation
 
+    The HuggingFace Datasets Authors and the current dataset script contributor. [https://huggingface.co/datasets/dialog_re]
+    [https://github.com/vineeths96]:
+        - [class] DialogREConfig
+        - [class] DialogRE
+
+Original Works:
+   - [class] SpeakerRelation
+   - [class] Message
 """
 
 from dataclasses import dataclass
@@ -154,13 +155,23 @@ _URLs = {
 """
 
 class SpeakerRelation:
-    speaker_x: str
-    speaker_y: str
+    """Speaker Relation dataclass
+
+    TUCORE-GCN implements Speakers's 1-9, and a subject/object entity, labelled [unused1] and [unused2] in the official
+    repository. Here, we have chosen to use speaker_x and speaker_y for better readability.
+
+    Attributes:
+        speaker_x (str): 1st object/subject entity
+        speaker_y (str): 2st object/subject entity
+        rid (List[int]): speaker input id to token mapping
+    """
+    entity_1: str
+    entity_2: str
     rid: List[int]
 
-    def __init__(self, speaker_x:str, speaker_y:str, rid:List[int]=[37]) -> None:
-        self.speaker_x = speaker_x
-        self.speaker_y = speaker_y
+    def __init__(self, entity_1:str, entity_2:str, rid:List[int]=[37]) -> None:
+        self.entity_1 = entity_1
+        self.entity_2 = entity_2
         self.rid = rid
 
 """
@@ -312,22 +323,22 @@ class Conversation:
         '''
         dialog_raw = self.messages
         ret_relation = SpeakerRelation(
-            relation.speaker_x, relation.speaker_y, relation.rid
+            relation.entity_1, relation.entity_2, relation.rid
         )
         soi = [
-            SPEAKER_TOKENS.SPEAKER_X,
-            SPEAKER_TOKENS.SPEAKER_Y,
+            SPEAKER_TOKENS.ENTITY_1,
+            SPEAKER_TOKENS.ENTITY_2,
         ]  # speaker_of_interest
         ret_dialog = []
         a = []
-        if self.is_speaker(relation.speaker_x):
-            a += [relation.speaker_x]
+        if self.is_speaker(relation.entity_1):
+            a += [relation.entity_1]
         else:
             a += [None]
-        if relation.speaker_x != relation.speaker_y and self.is_speaker(
-            relation.speaker_y
+        if relation.entity_1 != relation.entity_2 and self.is_speaker(
+            relation.entity_2
         ):
-            a += [relation.speaker_y]
+            a += [relation.entity_2]
         else:
             a += [None]
         for d in dialog_raw:
@@ -348,15 +359,15 @@ class Conversation:
         for i in range(len(a)):
             if a[i] is None:
                 continue
-            if relation.speaker_x == a[i]:
-                ret_relation.speaker_x = soi[i]
-            if relation.speaker_y == a[i]:
-                ret_relation.speaker_y = soi[i]
+            if relation.entity_1 == a[i]:
+                ret_relation.entity_1 = soi[i]
+            if relation.entity_2 == a[i]:
+                ret_relation.entity_2 = soi[i]
         dialog, relation = ret_dialog, ret_relation
         count = 0
         lim_dialog = []
-        speaker_x_tokens = tokenizer.tokenize(relation.speaker_x)
-        speaker_y_tokens = tokenizer.tokenize(relation.speaker_y)
+        speaker_x_tokens = tokenizer.tokenize(relation.entity_1)
+        speaker_y_tokens = tokenizer.tokenize(relation.entity_2)
         for line in dialog:
             line_len = len(tokenizer.tokenize(line))
             if (
