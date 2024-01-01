@@ -77,7 +77,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Processing code for DialogRE-formatted datasets
+r"""Processing code for DialogRE-formatted datasets
 
 DialogRE is a human annotated dialogue-based relation extraction dataset. Existing DialogRE dataset loaders are insufficient for
 project development. This module extends a pre-existing dataset loader from HuggingFace to add preprocessing capabilities for
@@ -96,11 +96,6 @@ Original Works:
    - [class] SpeakerRelation
    - [class] Message
 """
-
-from dataclasses import dataclass
-from transformers.models.bert.tokenization_bert import BertTokenizer
-
-"""DialogRE: the first human-annotated dialogue-based relation extraction dataset"""
 
 import json
 import os
@@ -148,7 +143,7 @@ _URLs = {
 
 
 class SpeakerRelation:
-    """Speaker Relation dataclass
+    r"""Speaker Relation dataclass
 
     TUCORE-GCN implements a subject/object entity, labelled [unused1] and [unused2] in the official TUCORE-GCN repository,
     following {Dian Yu, Kai Sun, Claire Cardie, and Dong Yu. 2020, Dialogue-based relation extraction. In Proceedings of the
@@ -182,23 +177,8 @@ class Message:
     speaker: str
     dialog: str
 
-
-"""f
-Methods
-[func] `__init__`
-messages (Union[str, List[str], List[Message]]): Messages comprising the conversation. Converts any input to the
-format `speaker`: `message`. Ex: `["Speaker 1: Hi!", "Speaker 2: Hi!"]`
-[func] `is_speaker`
-Checks if input string s has the formatting `speaker X` where X is any digit
-[func] `rename` 
-dialog (List[str]): 
-relation (SpeakerRelation): 
-[func] `_convert_token_to_id`,`_convert_id_to_token`
-"""
-
-
 class Conversation:
-    """Utility class containing a conversation between speakers, and relations between entities.
+    r"""Utility class containing a conversation between speakers, and relations between entities.
 
     Adapted from transformers library, transformers.pipelines.conversational.Conversation
     [https://github.com/huggingface/transformers/blob/main/src/transformers/pipelines/conversational.py] and from the official
@@ -279,7 +259,7 @@ class Conversation:
         return len(self.messages)
 
     def __repr__(self):
-        """Generates a string representation of the conversation.
+        r"""Generates a string representation of the conversation.
 
         Returns:
                 `str`:
@@ -303,7 +283,7 @@ class Conversation:
     def build_input_with_relation(
         self, relation, tokenizer, max_seq_length=512, for_f1c=False
     ):
-        """Builds TUCORE-GCN compatible inputs
+        r"""Builds TUCORE-GCN compatible inputs
 
         Adapted from https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py
 
@@ -397,7 +377,7 @@ class Conversation:
         }
 
     def build_inputs(self, tokenizer, max_seq_length=512, for_f1c=False):
-        """Builds TUCORE-GCN compatible inputs
+        r"""Builds TUCORE-GCN compatible inputs
 
         Adapted from https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py
 
@@ -442,10 +422,10 @@ class Conversation:
 
 
 class DialogREConfig(datasets.BuilderConfig):
-    """BuilderConfig for DialogRE"""
+    r"""BuilderConfig for DialogRE"""
 
     def __init__(self, **kwargs):
-        """BuilderConfig for DialogRE.
+        r"""BuilderConfig for DialogRE.
         Args:
           **kwargs: keyword arguments forwarded to super.
         """
@@ -453,7 +433,7 @@ class DialogREConfig(datasets.BuilderConfig):
 
 
 class DialogRE(datasets.GeneratorBasedBuilder):
-    """DialogRE: Human-annotated dialogue-based relation extraction dataset Version 2
+    r"""DialogRE: Human-annotated dialogue-based relation extraction dataset Version 2
 
     Adapted from https://huggingface.co/datasets/dialog_re, https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py
 
@@ -538,7 +518,7 @@ class DialogRE(datasets.GeneratorBasedBuilder):
         )
 
     def _generate_examples(self, filepath, split, max_seq_length=512, for_f1c=False):
-        """Yields examples."""
+        r"""Yields examples."""
         speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
         with open(filepath, encoding="utf-8") as f:
             dataset = json.load(f)

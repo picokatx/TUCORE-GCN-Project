@@ -3,28 +3,13 @@
 	"editor.tokenColorCustomizations": {
 		"textMateRules": [
 			{
-				"scope": "string.quoted.docstring.multi.python",
+				"scope": "string.quoted.docstring.raw.multi.python",
 				"settings": {
-					"foreground": "#cd91ff",
+					"foreground": "#ce91ff",
 					"fontStyle": "bold"
 				}
 			}
 		]
 	},
-	"rewrap.wrappingColumn": 128,
-	"hideComments.cleanStart": false,
-	"hideComments.regex": [
-		{
-		  "regex": "# MD ",
-		  "flags": "igm"
-		},
-		{
-			"regex": "#\\s\\[picokatx\\]\\s+\\\"\\\"\\\"",
-			"flags": "igm"
-		},
-		{
-			"regex": "\\\"\\\"\\\"\\s+#\\s\\[picokatx\\]",
-			"flags": "igm"
-		}
-	]
+	"rewrap.wrappingColumn": 128
 }

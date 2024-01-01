@@ -13,12 +13,52 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyTorch BERT model."""
 
-""" [markdown]
-block comment starts with a start mark
-and finally a end mark
-"""
+# MIT License
+#
+# Copyright (c) 2021 Bongseok Lee
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# MIT License
+#
+# Copyright (c) 2024 picokatx
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+r"""PyTorch BERT model."""
 
 import math
 import os
@@ -243,6 +283,9 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
             relevant if `config.is_decoder=True`.
         classifier_dropout (`float`, *optional*):
             The dropout ratio for the classification head.
+        gcn_layers (`int`, *optional*, defaults to 2),
+        gcn_act (`str`, *optional*, defaults to `"relu"`),
+        gcn_dropout (`int`, *optional*, defaults to 0.6),
 
     Examples:
 
@@ -310,37 +353,6 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         self.gcn_dropout = gcn_dropout
         self.debug_ret = debug_ret
         self.id2token = id2token
-
-
-""" 
-* Modified from transformers.models.bert.modeling_bert.BertEmbeddings
-* 
-* **Modifications Summary**
-* Added Speaker Embeddings describing the source speaker for each token in the
-* input sequence
-* 
-* word_embeddings - nn.Embedding(30522, 768, padding_idx=0) 
-*    Shape: vocab_size*hidden_size
-*    Inputs: input_ids
-*    Id of each token in the input sequence.
-* position_embeddings - nn.Embedding(512, 768)
-*    Shape: max_position_embeddings*hidden_size
-*    Inputs: input_ids
-*    Position of each token in the input sequence counting from the left.
-* token_type_embeddings - nn.Embedding(2, 768)
-*    Shape: is_masked*hidden_size
-*    Inputs: token_type_ids (alias: segment_ids)
-*    Used in BERT for splitting inputs into 2 segments for QA or sentence pair
-*    classification tasks. Here, TUCORE-GCN places the conversation in the first
-*    segment, and the speakers/subjects of interest in the second segment
-*    It is formatted as shown below:
-*    [CLS] `conversation_tokens` [SEP] `soi_1` [SEP] `soi_2` [SEP] [PAD] ... [PAD]
-*    [CLS] {speaker_1} Hi Person! {speaker_2} Hello other person ! [SEP] {speaker_1} [SEP] {speaker_2} [SEP] [PAD] ... [PAD]
-* speaker_embeddings - nn.Embedding(512, 768)
-*    Shape: max_position_embeddings*hidden_size
-*    Inputs: input_ids
-*    Added Speaker Embeddings as seen in TUCORE-GCN. The mapping for each input embeddings is followed
-""" 
 
 
 class BertEmbeddings(nn.Module):
@@ -1106,7 +1118,7 @@ class BertModel(BertPreTrainedModel):
         encoder_attention_mask: Optional[torch.Tensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = None,
+        output_attentions: Optional[bool] = True,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple[torch.Tensor], BaseModelOutputWithPoolingAndCrossAttentions]:
@@ -1338,7 +1350,7 @@ class RelGraphConvLayer(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, g, inputs):
-        """Forward computation
+        r"""Forward computation
         Parameters
         ----------
         g : DGLHeteroGraph
@@ -1502,6 +1514,8 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
         self.gcn_dim = config.hidden_size
         self.gcn_layers = config.gcn_layers
 
+        self.output_attentions = config.output_attentions,
+        self.output_hidden_states = config.output_hidden_states,
         if config.gcn_act == "tanh":
             self.activation = nn.Tanh()
         elif config.gcn_act == "relu":
@@ -1547,7 +1561,7 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
         # debug
         self.debug_ret = config.debug_ret
 
-    """
+    r"""
     input_ids: denotes token embeddings
     token_type_ids: artifact from NSP subtask of BERT. In this model the first sentence is the full conversation, while the 2nd sentence is a person???
     attention_mask: an input mask is passed here

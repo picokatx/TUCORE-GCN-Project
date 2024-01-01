@@ -34,7 +34,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Tokenization classes for TUCORE-GCN
+r"""Tokenization classes for TUCORE-GCN
 
 transformer's BERTTokenizer is not sufficient for handling conversation inputs. This module extends BERTTokenizer's capabilities
 to include special tokenizing behavior when handling speaker tokens.
@@ -56,7 +56,7 @@ from transformers.models.bert.tokenization_bert import BertTokenizer
 
 @dataclass
 class SPEAKER_TOKENS:
-    """Mappings for TUCORE-GCN's speaker2token
+    r"""Mappings for TUCORE-GCN's speaker2token
 
     TUCORE-GCN implements Speakers's 1-9, and a subject and object speaker, labelled [unused1] and [unused2] in the official
     repository. Here, we have chosen to use speaker_x and speaker_y for better readability.
@@ -79,7 +79,7 @@ class SPEAKER_TOKENS:
 
 
 class SpeakerBertTokenizer(BertTokenizer):
-    """BERT Tokenizer with speaker-id mappings. Based on WordPiece.
+    r"""BERT Tokenizer with speaker-id mappings. Based on WordPiece.
 
     Adapted from transformers library, transformers.models.bert.tokenization_bert.BertTokenizer
     [https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/tokenization_bert.py]
@@ -145,6 +145,15 @@ class SpeakerBertTokenizer(BertTokenizer):
     ```
 
     NOTE: self.basic_tokenizer.never_split is deprecated, but still has functionality
+    WARNING: If a name is not tokenizable, it is replaced with [UNK]. This issue is present in the original TUCORE-GCN
+    repository, and it leads to inaccurate entity-turn edges being formed.
+    e.g. 
+    "x": "Speaker 1",
+    "y": "Pheebs",
+    "rid": [
+     30
+    ],
+    "pheebs" is not a registered token or partial token in vocab.txt. it will tokenize to [UNK] (id=100).
     """
 
     speaker2id = {
@@ -209,7 +218,7 @@ class SpeakerBertTokenizer(BertTokenizer):
         )
 
     def _tokenize(self, text: str, split_special_tokens=False):
-        """BertTokenizer's internal tokenize method
+        r"""BertTokenizer's internal tokenize method
 
         Added speaker2id to self.basic_tokenizer.never_split, preventing BertTokenizer's internal tokenizer from splitting
         speaker tokens.
@@ -241,15 +250,15 @@ class SpeakerBertTokenizer(BertTokenizer):
         return split_tokens
 
     def is_speaker(self, token):
-        """Check if the token matches a pre-defined speaker in speaker2id"""
+        r"""Check if the token matches a pre-defined speaker in speaker2id"""
         return token in self.speaker2id
 
     def convert_speaker_to_id(self, token):
-        """Convert token to a pre-defined speaker using speaker2id"""
+        r"""Convert token to a pre-defined speaker using speaker2id"""
         return self.speaker2id[token]
 
     def _convert_token_to_id(self, token):
-        """Converts a token (str) in an id using the vocab.
+        r"""Converts a token (str) in an id using the vocab.
 
         If the token maps to a valid speaker, it is converted to its respective speaker id instead.
         """
@@ -259,7 +268,7 @@ class SpeakerBertTokenizer(BertTokenizer):
             return self.vocab.get(token, self.vocab.get(self.unk_token))
 
     def _convert_id_to_token(self, index):
-        """Converts an index (integer) in a token (str) using the vocab.
+        r"""Converts an index (integer) in a token (str) using the vocab.
 
         If the id maps to a speaker, it is converted to its respective speaker token instead.
         """
