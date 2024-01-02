@@ -2,18 +2,22 @@ import os
 from optimization import BERTAdam
 from tucore_gcn_transformers.tucore_gcn_bert_tokenizer import SpeakerBertTokenizer
 from tucore_gcn_transformers.tucore_gcn_bert_pipeline import create_model_inputs
-from tucore_gcn_transformers.tucore_gcn_bert_modelling import TUCOREGCN_BertConfig, TUCOREGCN_BertForSequenceClassification
+from tucore_gcn_transformers.tucore_gcn_bert_modelling import (
+    TUCOREGCN_BertConfig,
+    TUCOREGCN_BertForSequenceClassification,
+)
 from tqdm.notebook import tqdm_notebook
+from tqdm import tqdm
+from tqdm import trange
 import json
 from tucore_gcn_transformers.tucore_gcn_bert_processor import (
     SpeakerRelation,
     Conversation,
-    DialogRE
+    DialogRE,
 )
 import random
 from datasets.utils.info_utils import VerificationMode
 import datasets
-
 import csv
 import os
 import logging
@@ -42,59 +46,117 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def f1_eval(logits, labels_all):
+    def getpred(result, T1 = 0.5, T2 = 0.4):
+        ret = []
+        for i in range(len(result)):
+            r = []
+            maxl, maxj = -1, -1
+            for j in range(len(result[i])):
+                if result[i][j] > T1:
+                    r += [j]
+                if result[i][j] > maxl:
+                    maxl = result[i][j]
+                    maxj = j
+            if len(r) == 0:
+                if maxl <= T2:
+                    r = [36]
+                else:
+                    r += [maxj]
+            ret += [r]
+        return ret
+
+    def geteval(devp, data):
+        correct_sys, all_sys = 0, 0
+        correct_gt = 0
+        
+        for i in range(len(data)):
+            for id in data[i]:
+                if id != 36:
+                    correct_gt += 1
+                    if id in devp[i]:
+                        correct_sys += 1
+
+            for id in devp[i]:
+                if id != 36:
+                    all_sys += 1
+
+        precision = 1 if all_sys == 0 else correct_sys/all_sys
+        recall = 0 if correct_gt == 0 else correct_sys/correct_gt
+        f_1 = 2*precision*recall/(precision+recall) if precision+recall != 0 else 0
+        return f_1
+
+    logits = np.asarray(logits)
+    logits = list(1 / (1 + np.exp(-logits)))
+
+    labels = []
+    for la in labels_all:
+        label = []
+        for i in range(36):
+            if la[i] == 1:
+                label += [i]
+        if len(label) == 0:
+            label = [36]
+        labels += [label]
+    assert(len(labels) == len(logits))
+    
+    bestT2 = bestf_1 = 0
+    for T2 in range(51):
+        devp = getpred(logits, T2=T2/100.)
+        f_1 = geteval(devp, labels)
+        if f_1 > bestf_1:
+            bestf_1 = f_1
+            bestT2 = T2/100.
+
+    return bestf_1, bestT2
+
+def accuracy(out, labels):
+    out = out.reshape(-1)
+    out = 1 / (1 + np.exp(-out))
+    return np.sum((out > 0.5) == (labels > 0.5)) / 36
+
+
+def copy_optimizer_params_to_model(named_params_model, named_params_optimizer):
+    """Utility function for optimize_on_cpu and 16-bits training.
+    Copy the parameters optimized on CPU/RAM back to the model on GPU
+    """
+    for (name_opti, param_opti), (name_model, param_model) in zip(
+        named_params_optimizer, named_params_model
+    ):
+        if name_opti != name_model:
+            logger.error("name_opti != name_model: {} {}".format(name_opti, name_model))
+            raise ValueError
+        param_model.data.copy_(param_opti.data)
+
+
+def set_optimizer_params_grad(
+    named_params_optimizer, named_params_model, test_nan=False
+):
+    """Utility function for optimize_on_cpu and 16-bits training.
+    Copy the gradient of the GPU parameters to the CPU/RAMM copy of the model
+    """
+    is_nan = False
+    for (name_opti, param_opti), (name_model, param_model) in zip(
+        named_params_optimizer, named_params_model
+    ):
+        if name_opti != name_model:
+            logger.error("name_opti != name_model: {} {}".format(name_opti, name_model))
+            raise ValueError
+        if test_nan and torch.isnan(param_model.grad).sum() > 0:
+            is_nan = True
+        if param_opti.grad is None:
+            param_opti.grad = torch.nn.Parameter(
+                param_opti.data.new().resize_(*param_opti.data.size())
+            )
+        param_opti.grad.data.copy_(param_model.grad.data)
+    return is_nan
+
+
 def build_inputs_from_dialogre():
-    dialogre = DialogRE()
-    dialogre.download_and_prepare()
-    dialogre_data = dialogre.as_dataset()
-    speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
-    return {
-        "train": [
-            create_model_inputs(
-                speaker_tokenizer.tokenize(entry["dialog"]),
-                speaker_tokenizer.tokenize(entry["relation"]["entity_1"]),
-                speaker_tokenizer.tokenize(entry["relation"]["entity_2"]),
-                speaker_tokenizer,
-                entry,
-                True,
-                36,
-                512,
-            )
-            for idx, entry in tqdm(
-                enumerate(dialogre_data["train"]), total=dialogre_data["train"].num_rows
-            )
-        ],
-        "test": [
-            create_model_inputs(
-                speaker_tokenizer.tokenize(entry["dialog"]),
-                speaker_tokenizer.tokenize(entry["relation"]["entity_1"]),
-                speaker_tokenizer.tokenize(entry["relation"]["entity_2"]),
-                speaker_tokenizer,
-                entry,
-                True,
-                36,
-                512,
-            )
-            for idx, entry in tqdm(
-                enumerate(dialogre_data["test"]), total=dialogre_data["test"].num_rows
-            )
-        ],
-        "dev": [
-            create_model_inputs(
-                speaker_tokenizer.tokenize(entry["dialog"]),
-                speaker_tokenizer.tokenize(entry["relation"]["entity_1"]),
-                speaker_tokenizer.tokenize(entry["relation"]["entity_2"]),
-                speaker_tokenizer,
-                entry,
-                True,
-                36,
-                512,
-            )
-            for idx, entry in tqdm(
-                enumerate(dialogre_data["validation"]),
-                total=dialogre_data["validation"].num_rows,
-            )
-        ],
-    }
+    tucore_dataset = TUCOREGCNDataset()
+    tucore_dataset.download_and_prepare()
+    tucore_data = tucore_dataset.as_dataset()
+    return tucore_data
 
 
 def main():
@@ -291,42 +353,214 @@ def main():
         raise ValueError("At least one of `do_train` or `do_eval` must be True.")
     # Need to Implement Roberta TUCORE-GCN config
     config = TUCOREGCN_BertConfig.from_json_file(args.config_file)
-    # 
+    #
     if args.max_seq_length > config.max_position_embeddings:
         raise ValueError(
             "Cannot use sequence length {} because the BERT model was only trained up to sequence length {}".format(
-            args.max_seq_length, config.max_position_embeddings))
+                args.max_seq_length, config.max_position_embeddings
+            )
+        )
     # Don't overwrite last session's test model
-    if os.path.exists(args.output_dir) and 'model.pt' in os.listdir(args.output_dir):
+    if os.path.exists(args.output_dir) and "model.pt" in os.listdir(args.output_dir):
         if args.do_train and not args.resume:
-            raise ValueError("Output directory ({}) already exists and is not empty.".format(args.output_dir))
+            raise ValueError(
+                "Output directory ({}) already exists and is not empty.".format(
+                    args.output_dir
+                )
+            )
     else:
         os.makedirs(args.output_dir, exist_ok=True)
     # Custom speaker tokenizer with using deprecated workaround but who cares
-    tokenizer = SpeakerBertTokenizer(vocab_file=args.vocab_file, do_lower_case=args.do_lower_case)
+    tokenizer = SpeakerBertTokenizer(
+        vocab_file=args.vocab_file, do_lower_case=args.do_lower_case
+    )
     data = build_inputs_from_dialogre()
-    train_set = data['train']
-    test_set = data['test']
-    num_train_steps = int(len(train_set) / args.train_batch_size / args.gradient_accumulation_steps * args.num_train_epochs)
+    train_set = data["train"]
+    test_set = data["test"]
+    num_train_steps = int(
+        len(train_set)
+        / args.train_batch_size
+        / args.gradient_accumulation_steps
+        * args.num_train_epochs
+    )
     model = TUCOREGCN_BertForSequenceClassification(config, n_class)
     if args.init_checkpoint is not None:
-        model.bert.load_state_dict(torch.load(args.init_checkpoint, map_location='cpu'), strict=False)
-    no_decay = ['bias', 'gamma', 'beta']
+        model.bert.load_state_dict(
+            torch.load(args.init_checkpoint, map_location="cpu"), strict=False
+        )
+    no_decay = ["bias", "gamma", "beta"]
     param_optimizer = list(model.named_parameters())
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in param_optimizer if n not in no_decay], 'weight_decay_rate': 0.01},
-        {'params': [p for n, p in param_optimizer if n in no_decay], 'weight_decay_rate': 0.0}
-        ]
-    optimizer = BERTAdam(optimizer_grouped_parameters,
-                         lr=args.learning_rate,
-                         warmup=args.warmup_proportion,
-                         t_total=num_train_steps)
+        {
+            "params": [p for n, p in param_optimizer if n not in no_decay],
+            "weight_decay_rate": 0.01,
+        },
+        {
+            "params": [p for n, p in param_optimizer if n in no_decay],
+            "weight_decay_rate": 0.0,
+        },
+    ]
+    optimizer = BERTAdam(
+        optimizer_grouped_parameters,
+        lr=args.learning_rate,
+        warmup=args.warmup_proportion,
+        t_total=num_train_steps,
+    )
     global_step = 0
     if args.resume:
         model.load_state_dict(torch.load(os.path.join(args.output_dir, "model.pt")))
+    if args.do_train:
+        best_metric = 0
+        train_n_batches = len(train_set) // args.train_batch_size
+        test_n_batches = len(test_set) // args.train_batch_size
+        logger.info("***** Running training *****")
+        logger.info("  Num examples = %d", len(train_set))
+        logger.info("  Batch size = %d", args.train_batch_size)
+        logger.info("  Num steps = %d", num_train_steps)
 
-    return
+        for _ in trange(int(args.num_train_epochs), desc="Epoch"):
+            model.train()
+            tr_loss = 0
+            nb_tr_examples, nb_tr_steps = 0, 0
 
+            for step in trange(start=0, stop=train_n_batches):
+                shard = train_set.shard(num_shards=train_n_batches, index=step)
+                # need to reload dataset with label_ids bc I forgor
+                label_ids = torch.LongTensor(shard["label_ids"]).to(device)
+                input_ids = torch.LongTensor(shard["input_ids"]).to(device)
+                segment_ids = torch.LongTensor(shard["segment_ids"]).to(device)
+                input_masks = torch.LongTensor(shard["input_mask"]).to(device)
+                mention_ids = torch.LongTensor(shard["mention_ids"]).to(device)
+                speaker_ids = torch.LongTensor(shard["speaker_ids"]).to(device)
+                turn_mask = torch.LongTensor(shard["turn_masks"]).to(device)
+                graphs = [pickle.loads(g) for g in shard["graph"]]
+
+                loss, _ = model(
+                    input_ids=input_ids,
+                    token_type_ids=segment_ids,
+                    attention_mask=input_masks,
+                    speaker_ids=speaker_ids,
+                    graphs=graphs,
+                    mention_id=mention_ids,
+                    labels=label_ids,
+                    turn_mask=turn_mask,
+                )
+                if n_gpu > 1:
+                    loss = loss.mean()
+                if args.fp16 and args.loss_scale != 1.0:
+                    # rescale loss for fp16 training
+                    # see https://docs.nvidia.com/deeplearning/sdk/mixed-precision-training/index.html
+                    loss = loss * args.loss_scale
+                if args.gradient_accumulation_steps > 1:
+                    loss = loss / args.gradient_accumulation_steps
+                loss.backward()
+                tr_loss += loss.item()
+                nb_tr_examples += input_ids.size(0)
+                nb_tr_steps += 1
+                if (step + 1) % args.gradient_accumulation_steps == 0:
+                    if args.fp16 or args.optimize_on_cpu:
+                        if args.fp16 and args.loss_scale != 1.0:
+                            # scale down gradients for fp16 training
+                            for param in model.parameters():
+                                param.grad.data = param.grad.data / args.loss_scale
+                        is_nan = set_optimizer_params_grad(
+                            param_optimizer, model.named_parameters(), test_nan=True
+                        )
+                        if is_nan:
+                            logger.info(
+                                "FP16 TRAINING: Nan in gradients, reducing loss scaling"
+                            )
+                            args.loss_scale = args.loss_scale / 2
+                            model.zero_grad()
+                            continue
+                        optimizer.step()
+                        copy_optimizer_params_to_model(
+                            model.named_parameters(), param_optimizer
+                        )
+                    else:
+                        optimizer.step()
+                    model.zero_grad()
+                    global_step += 1
+            model.eval()
+            eval_loss, eval_accuracy = 0, 0
+            nb_eval_steps, nb_eval_examples = 0, 0
+            logits_all = []
+            labels_all = []
+            for step in trange(start=0, stop=test_n_batches):
+                shard = test_set.shard(num_shards=test_n_batches, index=step)
+                # need to reload dataset with label_ids bc I forgor
+                label_ids = torch.LongTensor(shard["label_ids"]).to(device)
+                input_ids = torch.LongTensor(shard["input_ids"]).to(device)
+                segment_ids = torch.LongTensor(shard["segment_ids"]).to(device)
+                input_masks = torch.LongTensor(shard["input_mask"]).to(device)
+                mention_ids = torch.LongTensor(shard["mention_ids"]).to(device)
+                speaker_ids = torch.LongTensor(shard["speaker_ids"]).to(device)
+                turn_mask = torch.LongTensor(shard["turn_masks"]).to(device)
+                graphs = [pickle.loads(g) for g in shard["graph"]]
+                with torch.no_grad():
+                    tmp_eval_loss, logits = model(
+                        input_ids=input_ids,
+                        token_type_ids=segment_ids,
+                        attention_mask=input_masks,
+                        speaker_ids=speaker_ids,
+                        graphs=graphs,
+                        mention_id=mention_ids,
+                        labels=label_ids,
+                        turn_mask=turn_mask,
+                    )
+
+                logits = logits.detach().cpu().numpy()
+                label_ids = label_ids.to("cpu").numpy()
+                for i in range(len(logits)):
+                    logits_all += [logits[i]]
+                for i in range(len(label_ids)):
+                    labels_all.append(label_ids[i])
+
+                tmp_eval_accuracy = accuracy(logits, label_ids.reshape(-1))
+
+                eval_loss += tmp_eval_loss.mean().item()
+                eval_accuracy += tmp_eval_accuracy
+
+                nb_eval_examples += input_ids.size(0)
+                nb_eval_steps += 1
+            eval_loss = eval_loss / nb_eval_steps
+            eval_accuracy = eval_accuracy / nb_eval_examples
+
+            if args.do_train:
+                result = {
+                    "eval_loss": eval_loss,
+                    "global_step": global_step,
+                    "loss": tr_loss / nb_tr_steps,
+                }
+            else:
+                result = {"eval_loss": eval_loss}
+
+            if args.f1eval:
+                eval_f1, eval_T2 = f1_eval(logits_all, labels_all)
+                result["f1"] = eval_f1
+                result["T2"] = eval_T2
+
+            logger.info("***** Eval results *****")
+            for key in sorted(result.keys()):
+                logger.info("  %s = %s", key, str(result[key]))
+
+            if args.f1eval:
+                if eval_f1 >= best_metric:
+                    torch.save(
+                        model.state_dict(),
+                        os.path.join(args.output_dir, "model_best.pt"),
+                    )
+                    best_metric = eval_f1
+            else:
+                if eval_accuracy >= best_metric:
+                    torch.save(
+                        model.state_dict(),
+                        os.path.join(args.output_dir, "model_best.pt"),
+                    )
+                    best_metric = eval_accuracy
+        model.load_state_dict(torch.load(os.path.join(args.output_dir, "model_best.pt")))
+        torch.save(model.state_dict(), os.path.join(args.output_dir, "model.pt"))
+    model.load_state_dict(torch.load(os.path.join(args.output_dir, "model.pt")))
 
 
 _CITATION = """\
@@ -391,7 +625,7 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
         ),
     ]
 
-    '''
+    """
     "tokens": tokens,
     "input_ids": input_ids,
     "input_mask": input_mask,
@@ -400,7 +634,7 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
     "mention_ids": mention_ids,
     "turn_masks": turn_masks,
     "graph": graph,
-    '''
+    """
 
     def _info(self):
         return datasets.DatasetInfo(
@@ -413,7 +647,9 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
                     "segment_ids": datasets.Sequence(datasets.Value("int32")),
                     "speaker_ids": datasets.Sequence(datasets.Value("int32")),
                     "mention_ids": datasets.Sequence(datasets.Value("int32")),
-                    "turn_masks": datasets.Sequence(datasets.Sequence(datasets.Value("bool"))),
+                    "turn_masks": datasets.Sequence(
+                        datasets.Sequence(datasets.Value("bool"))
+                    ),
                     "graph": datasets.Value("binary"),
                 }
             ),
@@ -459,14 +695,18 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
             **prepare_splits_kwargs,
         )
 
-    def _generate_examples(self, filepath, split, max_seq_length=512, for_f1c=False, old_behaviour=False):
+    def _generate_examples(
+        self, filepath, split, max_seq_length=512, for_f1c=False, old_behaviour=False
+    ):
         r"""Yields examples."""
         speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
         with open(filepath, encoding="utf-8") as f:
             dataset = json.load(f)
             if split == "train" and not for_f1c:
                 random.shuffle(dataset)
-            for tqdm_idx, entry in tqdm_notebook(enumerate(dataset), total=len(dataset)):
+            for tqdm_idx, entry in tqdm_notebook(
+                enumerate(dataset), total=len(dataset)
+            ):
                 dialog_raw = entry[0]
                 relation_data = entry[1]
                 relations = [
@@ -480,7 +720,11 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
                     if idx == -1:
                         break
                     ret_dialog, ret_relation = c.build_input_with_relation(
-                        relation, speaker_tokenizer, max_seq_length, for_f1c, old_behaviour
+                        relation,
+                        speaker_tokenizer,
+                        max_seq_length,
+                        for_f1c,
+                        old_behaviour,
                     ).values()
                     if ret_dialog != "":
                         entry = {
@@ -489,6 +733,7 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
                         }
                         (
                             tokens,
+                            label_ids,
                             input_ids,
                             input_mask,
                             segment_ids,
@@ -505,20 +750,11 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
                             True,
                             36,
                             max_seq_length,
+                            True,
                         )
-                        '''if tqdm_idx==184:
-                            print({
-                                "tokens": tokens,
-                                "input_ids": input_ids,
-                                "input_mask": input_mask,
-                                "segment_ids": segment_ids,
-                                "speaker_ids": speaker_ids,
-                                "mention_ids": mention_ids,
-                                "turn_masks": turn_masks,
-                                "graph": pickle.dumps(graph),
-                            })'''
                         yield idx, {
                             "tokens": tokens[0],
+                            "label_ids": label_ids[0],
                             "input_ids": input_ids[0],
                             "input_mask": input_mask[0],
                             "segment_ids": segment_ids[0],
@@ -528,3 +764,5 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
                             "graph": pickle.dumps(graph),
                         }
 
+if __name__ == "__main__":
+    main()

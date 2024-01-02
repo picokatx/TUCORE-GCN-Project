@@ -512,6 +512,7 @@ def main():
             model.train()
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
+            
             for step, batch in enumerate(tqdm(train_loader, desc="Train Iteration")):
                 input_ids = batch['input_ids'].to(device)
                 segment_ids = batch['segment_ids'].to(device)

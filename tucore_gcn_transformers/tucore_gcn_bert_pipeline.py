@@ -406,7 +406,7 @@ def create_graph(
     graph = dgl.heterograph(graph_data)
     return graph
 
-def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length):
+def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length, return_labels=False):
     tokens = create_tokens(sequence, entity_1, entity_2)
     input_ids = create_input_ids(tokens, speaker_tokenizer)
     input_mask = create_input_mask(sequence, entity_1, entity_2)
@@ -453,16 +453,29 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
     # Checks that the number of nodes referenced is turn_node_num+1(entity_1)+1(entity_2)+1(document_node)
     # The reason this works is that max(mention_ids) returns the id of entity 2. hence,
     # assert len(used_mention) == (max(mention_ids) + 1)
-    return (
-            [tokens],
-            np.array([input_ids]),
-            np.array([input_mask]),
-            np.array([segment_ids]),
-            np.array([speaker_ids]),
-            np.array([mention_ids]),
-            np.array([turn_masks]),
-            [graph],
-        )
+    if return_labels:
+        return (
+                [tokens],
+                np.array([label_id]),
+                np.array([input_ids]),
+                np.array([input_mask]),
+                np.array([segment_ids]),
+                np.array([speaker_ids]),
+                np.array([mention_ids]),
+                np.array([turn_masks]),
+                [graph],
+            )
+    else:
+        return (
+                [tokens],
+                np.array([input_ids]),
+                np.array([input_mask]),
+                np.array([segment_ids]),
+                np.array([speaker_ids]),
+                np.array([mention_ids]),
+                np.array([turn_masks]),
+                [graph],
+            )
 
 class ConversationalSequenceClassificationPipeline(Pipeline):
     r"""transformers pipeline for TUCORE-GCN. Generalizable to other models in theory
