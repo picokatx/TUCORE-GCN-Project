@@ -65,8 +65,8 @@ from torch import LongTensor
 def create_inputs(conversation: Conversation, speaker_tokenizer: SpeakerBertTokenizer):
     inputs = conversation.build_inputs(speaker_tokenizer)[0]
     sequence = speaker_tokenizer.tokenize(inputs["dialog"])
-    entity_1 = speaker_tokenizer.tokenize(inputs["relation"].entity_1)
-    entity_2 = speaker_tokenizer.tokenize(inputs["relation"].entity_2)
+    entity_1 = speaker_tokenizer.tokenize(inputs["relation"]['entity_1'])
+    entity_2 = speaker_tokenizer.tokenize(inputs["relation"]['entity_2'])
     return inputs, sequence, entity_1, entity_2
 
 
@@ -406,6 +406,63 @@ def create_graph(
     graph = dgl.heterograph(graph_data)
     return graph
 
+def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length):
+    tokens = create_tokens(sequence, entity_1, entity_2)
+    input_ids = create_input_ids(tokens, speaker_tokenizer)
+    input_mask = create_input_mask(sequence, entity_1, entity_2)
+    segment_ids = create_segment_ids(sequence, entity_1, entity_2)
+    speaker_ids = create_speaker_ids(
+        sequence,
+        entity_1,
+        entity_2,
+        inputs["relation"]['entity_1'],
+        inputs["relation"]['entity_2'],
+        speaker_tokenizer,
+        old_behaviour,
+    )
+    mention_ids = create_mention_ids(
+        sequence, entity_1, entity_2, speaker_tokenizer, old_behaviour
+    )
+    label_id = create_label_id(inputs["relation"]['rid'], n_class)
+    pad_inputs(
+        tokens,
+        input_ids,
+        input_mask,
+        segment_ids,
+        speaker_ids,
+        mention_ids,
+        max_seq_length,
+    )
+    turn_masks = create_turn_mask(np.array(mention_ids), old_behaviour)
+
+    turn_node_num = max(mention_ids) - 2
+    entity_1_mention_id = max(mention_ids) - 1
+    entity_2_mention_id = max(mention_ids)
+    entity_1_ids = speaker_tokenizer.convert_tokens_to_ids(entity_1)
+    entity_2_ids = speaker_tokenizer.convert_tokens_to_ids(entity_2)
+    graph = create_graph(
+        input_ids,
+        speaker_ids,
+        mention_ids,
+        entity_1_ids,
+        entity_2_ids,
+        turn_node_num,
+        entity_1_mention_id,
+        entity_2_mention_id,
+    )
+    # Checks that the number of nodes referenced is turn_node_num+1(entity_1)+1(entity_2)+1(document_node)
+    # The reason this works is that max(mention_ids) returns the id of entity 2. hence,
+    # assert len(used_mention) == (max(mention_ids) + 1)
+    return (
+            [tokens],
+            np.array([input_ids]),
+            np.array([input_mask]),
+            np.array([segment_ids]),
+            np.array([speaker_ids]),
+            np.array([mention_ids]),
+            np.array([turn_masks]),
+            [graph],
+        )
 
 class ConversationalSequenceClassificationPipeline(Pipeline):
     r"""transformers pipeline for TUCORE-GCN. Generalizable to other models in theory
@@ -455,70 +512,7 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
         inputs, sequence, entity_1, entity_2 = create_inputs(
             conversation, speaker_tokenizer
         )
-        tokens = create_tokens(sequence, entity_1, entity_2)
-        input_ids = create_input_ids(tokens, speaker_tokenizer)
-        input_mask = create_input_mask(sequence, entity_1, entity_2)
-        segment_ids = create_segment_ids(sequence, entity_1, entity_2)
-        speaker_ids = create_speaker_ids(
-            sequence,
-            entity_1,
-            entity_2,
-            inputs["relation"].entity_1,
-            inputs["relation"].entity_2,
-            speaker_tokenizer,
-            old_behaviour,
-        )
-        mention_ids = create_mention_ids(
-            sequence, entity_1, entity_2, speaker_tokenizer, old_behaviour
-        )
-        label_id = create_label_id(inputs["relation"].rid, n_class)
-        print(            tokens,
-            input_ids,
-            input_mask,
-            segment_ids,
-            speaker_ids,
-            mention_ids,
-            max_seq_length,)
-        pad_inputs(
-            tokens,
-            input_ids,
-            input_mask,
-            segment_ids,
-            speaker_ids,
-            mention_ids,
-            max_seq_length,
-        )
-        turn_masks = create_turn_mask(np.array(mention_ids), old_behaviour)
-
-        turn_node_num = max(mention_ids) - 2
-        entity_1_mention_id = max(mention_ids) - 1
-        entity_2_mention_id = max(mention_ids)
-        entity_1_ids = speaker_tokenizer.convert_tokens_to_ids(entity_1)
-        entity_2_ids = speaker_tokenizer.convert_tokens_to_ids(entity_2)
-        graph = create_graph(
-            input_ids,
-            speaker_ids,
-            mention_ids,
-            entity_1_ids,
-            entity_2_ids,
-            turn_node_num,
-            entity_1_mention_id,
-            entity_2_mention_id,
-        )
-        # Checks that the number of nodes referenced is turn_node_num+1(entity_1)+1(entity_2)+1(document_node)
-        # The reason this works is that max(mention_ids) returns the id of entity 2. hence,
-        # assert len(used_mention) == (max(mention_ids) + 1)
-
-        return (
-            [tokens],
-            np.array([input_ids]),
-            np.array([input_mask]),
-            np.array([segment_ids]),
-            np.array([speaker_ids]),
-            np.array([mention_ids]),
-            np.array([turn_masks]),
-            [graph],
-        )
+        return create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, max_seq_length)
 
     def _forward(self, model_inputs):  # model_inputs == {"model_input": model_input}
         (

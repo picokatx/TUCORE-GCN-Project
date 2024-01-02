@@ -171,6 +171,9 @@ class SpeakerRelation:
         self.entity_2 = entity_2
         self.rid = rid
 
+    def __repr__(self) -> str:
+        return f"SpeakerRelation(entity_1=\"{self.entity_1}\",entity_2=\"{self.entity_2}\",rid={self.rid}"
+
 
 @dataclass
 class Message:
@@ -281,7 +284,7 @@ class Conversation:
         return len(s) == 2 and s[0] == "Speaker" and s[1].isdigit()
 
     def build_input_with_relation(
-        self, relation, tokenizer, max_seq_length=512, for_f1c=False
+        self, relation, tokenizer, max_seq_length=512, for_f1c=False, old_behaviour=False
     ):
         r"""Builds TUCORE-GCN compatible inputs
 
@@ -315,6 +318,7 @@ class Conversation:
         SpeakerRelation(entity_1="{entity_1}",entity_2="{entity_2}",rid=[3])
         ```
         """
+        remove_colons = False
         dialog_raw = self.messages
         ret_relation = SpeakerRelation(
             relation.entity_1, relation.entity_2, relation.rid
@@ -339,24 +343,31 @@ class Conversation:
             for i in range(len(a)):
                 if a[i] is None:
                     continue
-                d = d.replace(a[i] + ":", soi[i])
-            d = d.replace("Speaker 1:", SPEAKER_TOKENS.SPEAKER_1)
-            d = d.replace("Speaker 2:", SPEAKER_TOKENS.SPEAKER_2)
-            d = d.replace("Speaker 3:", SPEAKER_TOKENS.SPEAKER_3)
-            d = d.replace("Speaker 4:", SPEAKER_TOKENS.SPEAKER_4)
-            d = d.replace("Speaker 5:", SPEAKER_TOKENS.SPEAKER_5)
-            d = d.replace("Speaker 6:", SPEAKER_TOKENS.SPEAKER_6)
-            d = d.replace("Speaker 7:", SPEAKER_TOKENS.SPEAKER_7)
-            d = d.replace("Speaker 8:", SPEAKER_TOKENS.SPEAKER_8)
-            d = d.replace("Speaker 9:", SPEAKER_TOKENS.SPEAKER_9)
+                d = d.replace(a[i] + ":", soi[i] + ("" if remove_colons else " :"))
+            if not old_behaviour:
+                d = d.replace(relation.entity_1, soi[0])
+                d = d.replace(relation.entity_2, soi[1])
+            d = d.replace("Speaker 1:", SPEAKER_TOKENS.SPEAKER_1 + ("" if remove_colons else " :"))
+            d = d.replace("Speaker 2:", SPEAKER_TOKENS.SPEAKER_2 + ("" if remove_colons else " :"))
+            d = d.replace("Speaker 3:", SPEAKER_TOKENS.SPEAKER_3 + ("" if remove_colons else " :"))
+            d = d.replace("Speaker 4:", SPEAKER_TOKENS.SPEAKER_4 + ("" if remove_colons else " :"))
+            d = d.replace("Speaker 5:", SPEAKER_TOKENS.SPEAKER_5 + ("" if remove_colons else " :"))
+            d = d.replace("Speaker 6:", SPEAKER_TOKENS.SPEAKER_6 + ("" if remove_colons else " :"))
+            d = d.replace("Speaker 7:", SPEAKER_TOKENS.SPEAKER_7 + ("" if remove_colons else " :"))
+            d = d.replace("Speaker 8:", SPEAKER_TOKENS.SPEAKER_8 + ("" if remove_colons else " :"))
+            d = d.replace("Speaker 9:", SPEAKER_TOKENS.SPEAKER_9 + ("" if remove_colons else " :"))
             ret_dialog.append(d)
-        for i in range(len(a)):
-            if a[i] is None:
-                continue
-            if relation.entity_1 == a[i]:
-                ret_relation.entity_1 = soi[i]
-            if relation.entity_2 == a[i]:
-                ret_relation.entity_2 = soi[i]
+        if old_behaviour:
+            for i in range(len(a)):
+                if a[i] is None:
+                    continue
+                if relation.entity_1 == a[i]:
+                    ret_relation.entity_1 = soi[i]
+                if relation.entity_2 == a[i]:
+                    ret_relation.entity_2 = soi[i]
+        else:
+            ret_relation.entity_1 = soi[0]
+            ret_relation.entity_2 = soi[1]
         dialog, relation = ret_dialog, ret_relation
         count = 0
         lim_dialog = []
@@ -373,10 +384,10 @@ class Conversation:
             lim_dialog.append(line)
         return {
             "dialog": "\n".join(lim_dialog).lower(),
-            "relation": relation,
+            "relation": {"entity_1": relation.entity_1, "entity_2": relation.entity_2, "rid": relation.rid},
         }
 
-    def build_inputs(self, tokenizer, max_seq_length=512, for_f1c=False):
+    def build_inputs(self, tokenizer, max_seq_length=512, for_f1c=False, old_behaviour=False):
         r"""Builds TUCORE-GCN compatible inputs
 
         Adapted from https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py
@@ -409,7 +420,7 @@ class Conversation:
             if idx == -1:
                 break
             ret_dialog, ret_relation = self.build_input_with_relation(
-                relation, tokenizer, max_seq_length, for_f1c
+                relation, tokenizer, max_seq_length, for_f1c, old_behaviour
             ).values()
             if ret_dialog != "":
                 ret.append(
@@ -458,16 +469,12 @@ class DialogRE(datasets.GeneratorBasedBuilder):
             description=_DESCRIPTION,
             features=datasets.Features(
                 {
-                    "dialog": datasets.Sequence(datasets.Value("string")),
-                    "relation_data": datasets.Sequence(
+                    "dialog": datasets.Value("string"),
+                    "relation": datasets.Features(
                         {
-                            "x": datasets.Value("string"),
-                            "y": datasets.Value("string"),
-                            "x_type": datasets.Value("string"),
-                            "y_type": datasets.Value("string"),
-                            "r": datasets.Sequence(datasets.Value("string")),
+                            "entity_1": datasets.Value("string"),
+                            "entity_2": datasets.Value("string"),
                             "rid": datasets.Sequence(datasets.Value("int32")),
-                            "t": datasets.Sequence(datasets.Value("string")),
                         }
                     ),
                 }
@@ -480,7 +487,6 @@ class DialogRE(datasets.GeneratorBasedBuilder):
 
     def _split_generators(self, dl_manager):
         """Returns SplitGenerators."""
-
         data_dir = dl_manager.download_and_extract(_URLs)
         return [
             datasets.SplitGenerator(
@@ -511,13 +517,11 @@ class DialogRE(datasets.GeneratorBasedBuilder):
     ):
         super()._download_and_prepare(
             dl_manager,
-            verification_mode,
-            check_duplicate_keys=verification_mode == VerificationMode.BASIC_CHECKS
-            or verification_mode == VerificationMode.ALL_CHECKS,
+            VerificationMode.NO_CHECKS,
             **prepare_splits_kwargs,
         )
 
-    def _generate_examples(self, filepath, split, max_seq_length=512, for_f1c=False):
+    def _generate_examples(self, filepath, split, max_seq_length=512, for_f1c=False, old_behaviour=False):
         r"""Yields examples."""
         speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
         with open(filepath, encoding="utf-8") as f:
@@ -538,7 +542,7 @@ class DialogRE(datasets.GeneratorBasedBuilder):
                     if idx == -1:
                         break
                     ret_dialog, ret_relation = c.build_input_with_relation(
-                        relation, speaker_tokenizer, max_seq_length, for_f1c
+                        relation, speaker_tokenizer, max_seq_length, for_f1c, old_behaviour
                     ).values()
                     if ret_dialog != "":
                         yield idx, {

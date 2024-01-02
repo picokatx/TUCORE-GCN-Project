@@ -17,6 +17,10 @@
 	"gcn_layers": 2,
 	"gcn_dropout": 0.6,
 	"debug_ret": false,
+	"use_cache": false,
+	"output_attentions": true,
+	"output_hidden_states": true,
+	"return_dict": true,
 	"id2token": {
 		"1": "per:positive_impression",
 		"2": "per:negative_impression",

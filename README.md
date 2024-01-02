@@ -9,6 +9,7 @@ https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html
 Issues:
 - Entities are cast to [UNK] if not understood by the vocab: Replace names with special entity tokens
 - Conversations are limited to 512 tokens
+- Limited to 9 Speakers
 Improvements:
 - Can replace GCN with Graph Transformer.
 - Maybe design something that can distill multiple ongoing conversations at once?
@@ -23,3 +24,5 @@ https://dl.acm.org/doi/abs/10.1145/3638760
 https://dl.acm.org/doi/abs/10.1145/3616493
 https://arxiv.org/abs/2306.06141
 https://arxiv.org/abs/2310.14614
+
+

@@ -17,6 +17,7 @@ require.config({
 	paths: {
 		d3: 'https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min',
 	  jquery: 'https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.0/jquery.min',
+	  
 	}
   });
   
@@ -55,7 +56,6 @@ require.config({
 		  }
 		// Changes the RGB/HEX temporarily to a HSL-Value, modifies that value 
 		// and changes it back to RGB/HEX.
-
 		function changeHue(rgb, degree) {
 			var hsl = rgbToHSL(rgb);
 			hsl.h += degree;
@@ -481,6 +481,7 @@ require.config({
 		  }
   
 		  function renderDetailAttn(x, y, att, layerIndex) {
+			  var lim = $( "#weight_display_min" ).val()
 			  var attnContainer = config.svg.append("svg:g")
 				  .classed("detail", true)
 				  .attr("pointer-events", "none");
@@ -508,9 +509,14 @@ require.config({
 					  return y + (targetIndex + .5) * DETAIL_BOX_HEIGHT;
 				  })
 				  .attr("stroke-width", 2.2)
-				  .attr("stroke", function (d) {return changeHue("ff0000", d)})
+				  .attr("stroke", function (d) {return getLayerColor(layerIndex)})
 				  .attr("stroke-opacity", function (d) {
-					  return 1;
+					  if (d>=lim) {
+						return d;
+					  } else {
+						return 0
+					  }
+					  
 				  });
 		  }
   

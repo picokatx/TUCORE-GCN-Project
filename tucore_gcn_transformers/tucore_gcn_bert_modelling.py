@@ -327,7 +327,48 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         gcn_act="relu",
         gcn_dropout=0.6,
         debug_ret=False,
-        id2token={},
+        id2token={
+		"1": "per:positive_impression",
+		"2": "per:negative_impression",
+		"3": "per:acquaintance",
+		"4": "per:alumni",
+		"5": "per:boss",
+		"6": "per:subordinate",
+		"7": "per:client",
+		"8": "per:dates",
+		"9": "per:friends",
+		"10": "per:girl/boyfriend",
+		"11": "per:neighbor",
+		"12": "per:roommate",
+		"13": "per:children",
+		"14": "per:other_family",
+		"15": "per:parents",
+		"16": "per:siblings",
+		"17": "per:spouse",
+		"18": "per:place_of_residence",
+		"19": "per:place_of_birth",
+		"20": "per:visited_place",
+		"21": "per:origin",
+		"22": "per:employee_or_member_of",
+		"23": "per:schools_attended",
+		"24": "per:works",
+		"25": "per:age",
+		"26": "per:date_of_birth",
+		"27": "per:major",
+		"28": "per:place_of_work",
+		"29": "per:title",
+		"30": "per:alternate_names",
+		"31": "per:pet",
+		"32": "gpe:residents_of_place",
+		"33": "gpe:births_in_place",
+		"34": "gpe:visitors_of_place",
+		"35": "org:employees_or_members",
+		"36": "org:students",
+		"37": "unanswerable"
+	},
+        output_attentions = True,
+        output_hidden_states = True,
+        return_dict = True,
         **kwargs,
     ):
         super().__init__(pad_token_id=pad_token_id, **kwargs)
@@ -353,6 +394,9 @@ class TUCOREGCN_BertConfig(PretrainedConfig):
         self.gcn_dropout = gcn_dropout
         self.debug_ret = debug_ret
         self.id2token = id2token
+        self.output_attentions = output_attentions
+        self.output_hidden_states = output_hidden_states
+        self.return_dict = return_dict
 
 
 class BertEmbeddings(nn.Module):
@@ -1118,7 +1162,7 @@ class BertModel(BertPreTrainedModel):
         encoder_attention_mask: Optional[torch.Tensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = True,
+        output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple[torch.Tensor], BaseModelOutputWithPoolingAndCrossAttentions]:
@@ -1514,8 +1558,11 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
         self.gcn_dim = config.hidden_size
         self.gcn_layers = config.gcn_layers
 
-        self.output_attentions = config.output_attentions,
-        self.output_hidden_states = config.output_hidden_states,
+        self.use_cache = config.use_cache
+        self.output_attentions = config.output_attentions
+        self.output_hidden_states = config.output_hidden_states
+        self.return_dict = config.return_dict
+
         if config.gcn_act == "tanh":
             self.activation = nn.Tanh()
         elif config.gcn_act == "relu":
@@ -1580,6 +1627,10 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
         graphs,
         mention_ids,
         turn_mask=None,
+        head_mask: Optional[torch.Tensor] = None,
+        inputs_embeds: Optional[torch.Tensor] = None,
+        encoder_hidden_states: Optional[torch.Tensor] = None,
+        past_key_values: Optional[List[torch.FloatTensor]] = None,
     ):
         """
         Encoder Module
@@ -1589,6 +1640,14 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
             speaker_ids=speaker_ids,
             token_type_ids=token_type_ids,
             encoder_attention_mask=attention_mask,
+            use_cache = self.use_cache,
+            output_attentions = self.output_attentions,
+            output_hidden_states = self.output_hidden_states,
+            return_dict = self.return_dict,
+            head_mask = head_mask,
+            inputs_embeds = inputs_embeds,
+            encoder_hidden_states = encoder_hidden_states,
+            past_key_values = past_key_values,
         )
         sequence_outputs, pooled_outputs = (
             outputs.last_hidden_state,
@@ -1666,7 +1725,7 @@ class TUCOREGCN_Bert(TUCOREGCN_BertPreTrainedModel):
                 new_features.append(features[start + idx - 1])
                 # Increment by length of current input feature
                 start += idx
-            # Throw GCN at it and pray
+            # Throw R-GCN at it and pray
             features = torch.stack(new_features)
             features = GCN_layer(graph_big, {"node": features})["node"]
             output_features.append(features)

@@ -220,6 +220,7 @@ def model_view(
                 {select_html}
             </span>
             <div id='vis'></div>
+            <input type="number" min="0" max="1" step="0.01" id="weight_display_min" name="weight_display_min">0</input>
         </div>
     """
 
