@@ -151,14 +151,6 @@ def set_optimizer_params_grad(
         param_opti.grad.data.copy_(param_model.grad.data)
     return is_nan
 
-
-def build_inputs_from_dialogre():
-    tucore_dataset = TUCOREGCNDataset()
-    tucore_dataset.download_and_prepare()
-    tucore_data = tucore_dataset.as_dataset()
-    return tucore_data
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -374,9 +366,11 @@ def main():
     tokenizer = SpeakerBertTokenizer(
         vocab_file=args.vocab_file, do_lower_case=args.do_lower_case
     )
-    data = build_inputs_from_dialogre()
-    train_set = data["train"]
-    test_set = data["test"]
+    # updated datasets repo
+    tucore_dataset = TUCOREGCNDataset()
+    tucore_dataset.download_and_prepare()
+    tucore_data = tucore_dataset.as_dataset()
+    train_set, test_set = tucore_data["train"], tucore_data["test"]
     num_train_steps = int(
         len(train_set)
         / args.train_batch_size
@@ -388,7 +382,7 @@ def main():
         model.bert.load_state_dict(
             torch.load(args.init_checkpoint, map_location="cpu"), strict=False
         )
-    no_decay = ["bias", "gamma", "beta"]
+    no_decay = ["bias", "weight", "bias"]
     param_optimizer = list(model.named_parameters())
     optimizer_grouped_parameters = [
         {
@@ -642,6 +636,7 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
             features=datasets.Features(
                 {
                     "tokens": datasets.Sequence(datasets.Value("string")),
+                    "label_ids": datasets.Sequence(datasets.Value("int32")),
                     "input_ids": datasets.Sequence(datasets.Value("int32")),
                     "input_mask": datasets.Sequence(datasets.Value("int32")),
                     "segment_ids": datasets.Sequence(datasets.Value("int32")),
