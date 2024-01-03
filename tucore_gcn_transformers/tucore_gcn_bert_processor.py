@@ -106,7 +106,7 @@ import random
 from dataclasses import dataclass
 from datasets.utils.info_utils import VerificationMode
 from datasets.utils.download_manager import DownloadManager
-from tucore_gcn_transformers.tucore_gcn_bert_tokenizer import (
+from tucore_gcn_bert_tokenizer import (
     SPEAKER_TOKENS,
     SpeakerBertTokenizer,
 )

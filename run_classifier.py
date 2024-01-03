@@ -413,7 +413,6 @@ def main():
     torch.manual_seed(args.seed)
     if n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
-
     if not args.do_train and not args.do_eval:
         raise ValueError("At least one of `do_train` or `do_eval` must be True.")
     
@@ -523,7 +522,7 @@ def main():
                 turn_mask = batch['turn_masks'].to(device)
                 graphs = batch['graphs']
 
-                loss, _ = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_id=mention_ids, labels=label_ids, turn_mask=turn_mask)
+                loss, _ = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_ids=mention_ids, labels=label_ids, turn_mask=turn_mask)
                 if n_gpu > 1:
                     loss = loss.mean()
                 if args.fp16 and args.loss_scale != 1.0:
@@ -571,7 +570,7 @@ def main():
                 graphs = batch['graphs']
 
                 with torch.no_grad():
-                    tmp_eval_loss, logits = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_id=mention_ids, labels=label_ids, turn_mask=turn_mask)
+                    tmp_eval_loss, logits = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_ids=mention_ids, labels=label_ids, turn_mask=turn_mask)
 
                 logits = logits.detach().cpu().numpy()
                 label_ids = label_ids.to('cpu').numpy()

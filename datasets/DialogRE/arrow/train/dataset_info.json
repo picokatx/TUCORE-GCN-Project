@@ -1,9 +1,9 @@
 {
   "builder_name": "tucore_gcn_bert_train",
   "citation": "@inproceedings{yu2020dialogue,\n  title={Dialogue-Based Relation Extraction},\n  author={Yu, Dian and Sun, Kai and Cardie, Claire and Yu, Dong},\n  booktitle={Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics},\n  year={2020},\n  url={https://arxiv.org/abs/2004.08056v1}\n}\n",
-  "config_name": "dialog_re",
+  "config_name": "tucore_gcn_dialog_re",
   "dataset_name": "tucore_gcn_bert_train",
-  "dataset_size": 527950597,
+  "dataset_size": 529397001,
   "description": "DialogRE is the first human-annotated dialogue based relation extraction (RE) dataset aiming\nto support the prediction of relation(s) between two arguments that appear in a dialogue.\nThe dataset annotates all occurrences of 36 possible relation types that exist between pairs\nof arguments in the 1,788 dialogues originating from the complete transcripts of Friends.\n",
   "download_checksums": {
     "https://raw.githubusercontent.com/nlpdata/dialogre/master/data_v2/en/data/train.json": {
@@ -24,6 +24,13 @@
     "tokens": {
       "feature": {
         "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "label_ids": {
+      "feature": {
+        "dtype": "int32",
         "_type": "Value"
       },
       "_type": "Sequence"
@@ -80,31 +87,31 @@
   },
   "homepage": "https://github.com/nlpdata/dialogre",
   "license": "https://github.com/nlpdata/dialogre/blob/master/license.txt",
-  "size_in_bytes": 531766831,
+  "size_in_bytes": 533213235,
   "splits": {
     "train": {
       "name": "train",
-      "num_bytes": 324090641,
+      "num_bytes": 324978197,
       "num_examples": 5997,
       "dataset_name": "tucore_gcn_bert_train"
     },
     "test": {
       "name": "test",
-      "num_bytes": 100315228,
+      "num_bytes": 100590804,
       "num_examples": 1862,
       "dataset_name": "tucore_gcn_bert_train"
     },
     "validation": {
       "name": "validation",
-      "num_bytes": 103544728,
+      "num_bytes": 103828000,
       "num_examples": 1914,
       "dataset_name": "tucore_gcn_bert_train"
     }
   },
   "version": {
-    "version_str": "1.1.0",
+    "version_str": "1.0.0",
     "major": 1,
-    "minor": 1,
+    "minor": 0,
     "patch": 0
   }
 }

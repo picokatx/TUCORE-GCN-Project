@@ -1,8 +1,7 @@
 import os
-from optimization import BERTAdam
-from tucore_gcn_transformers.tucore_gcn_bert_tokenizer import SpeakerBertTokenizer
-from tucore_gcn_transformers.tucore_gcn_bert_pipeline import create_model_inputs
-from tucore_gcn_transformers.tucore_gcn_bert_modelling import (
+from tucore_gcn_bert_tokenizer import SpeakerBertTokenizer
+from tucore_gcn_bert_pipeline import create_model_inputs
+from tucore_gcn_bert_modelling import (
     TUCOREGCN_BertConfig,
     TUCOREGCN_BertForSequenceClassification,
 )
@@ -10,7 +9,7 @@ from tqdm.notebook import tqdm_notebook
 from tqdm import tqdm
 from tqdm import trange
 import json
-from tucore_gcn_transformers.tucore_gcn_bert_processor import (
+from tucore_gcn_bert_processor import (
     SpeakerRelation,
     Conversation,
     DialogRE,
@@ -27,6 +26,153 @@ import pickle
 
 import numpy as np
 import torch
+
+import math
+import torch
+from torch.optim import Optimizer
+from torch.nn.utils import clip_grad_norm_
+
+from TUCOREGCN_BERT import TUCOREGCN_BERT as other_tucore
+def warmup_cosine(x, warmup=0.002):
+    if x < warmup:
+        return x/warmup
+    return 0.5 * (1.0 + torch.cos(math.pi * x))
+
+def warmup_constant(x, warmup=0.002):
+    if x < warmup:
+        return x/warmup
+    return 1.0
+
+def warmup_linear(x, warmup=0.002):
+    if x < warmup:
+        return x/warmup
+    return 1.0 - x
+
+SCHEDULES = {
+    'warmup_cosine':warmup_cosine,
+    'warmup_constant':warmup_constant,
+    'warmup_linear':warmup_linear,
+}
+
+
+class BERTAdam(Optimizer):
+    """Implements BERT version of Adam algorithm with weight decay fix (and no ).
+    Params:
+        lr: learning rate
+        warmup: portion of t_total for the warmup, -1  means no warmup. Default: -1
+        t_total: total number of training steps for the learning
+            rate schedule, -1  means constant learning rate. Default: -1
+        schedule: schedule to use for the warmup (see above). Default: 'warmup_linear'
+        b1: Adams b1. Default: 0.9
+        b2: Adams b2. Default: 0.999
+        e: Adams epsilon. Default: 1e-6
+        weight_decay_rate: Weight decay. Default: 0.01
+        max_grad_norm: Maximum norm for the gradients (-1 means no clipping). Default: 1.0
+    """
+    def __init__(self, params, lr, warmup=-1, t_total=-1, schedule='warmup_linear',
+                 b1=0.9, b2=0.999, e=1e-6, weight_decay_rate=0.01,
+                 max_grad_norm=1.0):
+        if not lr >= 0.0:
+            raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
+        if schedule not in SCHEDULES:
+            raise ValueError("Invalid schedule parameter: {}".format(schedule))
+        if not 0.0 <= warmup < 1.0 and not warmup == -1:
+            raise ValueError("Invalid warmup: {} - should be in [0.0, 1.0[ or -1".format(warmup))
+        if not 0.0 <= b1 < 1.0:
+            raise ValueError("Invalid b1 parameter: {} - should be in [0.0, 1.0[".format(b1))
+        if not 0.0 <= b2 < 1.0:
+            raise ValueError("Invalid b2 parameter: {} - should be in [0.0, 1.0[".format(b2))
+        if not e >= 0.0:
+            raise ValueError("Invalid epsilon value: {} - should be >= 0.0".format(e))
+        defaults = dict(lr=lr, schedule=schedule, warmup=warmup, t_total=t_total,
+                        b1=b1, b2=b2, e=e, weight_decay_rate=weight_decay_rate,
+                        max_grad_norm=max_grad_norm)
+        super(BERTAdam, self).__init__(params, defaults)
+
+    def get_lr(self):
+        lr = []
+        for group in self.param_groups:
+            for p in group['params']:
+                state = self.state[p]
+                if len(state) == 0:
+                    return [0]
+                if group['t_total'] != -1:
+                    schedule_fct = SCHEDULES[group['schedule']]
+                    lr_scheduled = group['lr'] * schedule_fct(state['step']/group['t_total'], group['warmup'])
+                else:
+                    lr_scheduled = group['lr']
+                lr.append(lr_scheduled)
+        return lr
+
+    def step(self, closure=None):
+        """Performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                grad = p.grad.data
+                if grad.is_sparse:
+                    raise RuntimeError('Adam does not support sparse gradients, please consider SparseAdam instead')
+
+                state = self.state[p]
+
+                # State initialization
+                if len(state) == 0:
+                    state['step'] = 0
+                    # Exponential moving average of gradient values
+                    state['next_m'] = torch.zeros_like(p.data)
+                    # Exponential moving average of squared gradient values
+                    state['next_v'] = torch.zeros_like(p.data)
+
+                next_m, next_v = state['next_m'], state['next_v']
+                beta1, beta2 = group['b1'], group['b2']
+
+                # Add grad clipping
+                if group['max_grad_norm'] > 0:
+                    clip_grad_norm_(p, group['max_grad_norm'])
+
+                # Decay the first and second moment running average coefficient
+                # In-place operations to update the averages at the same time
+                next_m.mul_(beta1).add_(1 - beta1, grad)
+                next_v.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+                update = next_m / (next_v.sqrt() + group['e'])
+
+                # Just adding the square of the weights to the loss function is *not*
+                # the correct way of using L2 regularization/weight decay with Adam,
+                # since that will interact with the m and v parameters in strange ways.
+                #
+                # Instead we want ot decay the weights in a manner that doesn't interact
+                # with the m/v parameters. This is equivalent to adding the square
+                # of the weights to the loss with plain (non-momentum) SGD.
+                if group['weight_decay_rate'] > 0.0:
+                    update += group['weight_decay_rate'] * p.data
+
+                if group['t_total'] != -1:
+                    schedule_fct = SCHEDULES[group['schedule']]
+                    lr_scheduled = group['lr'] * schedule_fct(state['step']/group['t_total'], group['warmup'])
+                else:
+                    lr_scheduled = group['lr']
+
+                update_with_lr = lr_scheduled * update
+                p.data.add_(-update_with_lr)
+
+                state['step'] += 1
+
+                # step_size = lr_scheduled * math.sqrt(bias_correction2) / bias_correction1
+                # bias_correction1 = 1 - beta1 ** state['step']
+                # bias_correction2 = 1 - beta2 ** state['step']
+
+        return loss
+
 
 n_classes = {
     "DialogRE": 36,
@@ -46,8 +192,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 def f1_eval(logits, labels_all):
-    def getpred(result, T1 = 0.5, T2 = 0.4):
+    def getpred(result, T1=0.5, T2=0.4):
         ret = []
         for i in range(len(result)):
             r = []
@@ -69,7 +216,7 @@ def f1_eval(logits, labels_all):
     def geteval(devp, data):
         correct_sys, all_sys = 0, 0
         correct_gt = 0
-        
+
         for i in range(len(data)):
             for id in data[i]:
                 if id != 36:
@@ -81,9 +228,13 @@ def f1_eval(logits, labels_all):
                 if id != 36:
                     all_sys += 1
 
-        precision = 1 if all_sys == 0 else correct_sys/all_sys
-        recall = 0 if correct_gt == 0 else correct_sys/correct_gt
-        f_1 = 2*precision*recall/(precision+recall) if precision+recall != 0 else 0
+        precision = 1 if all_sys == 0 else correct_sys / all_sys
+        recall = 0 if correct_gt == 0 else correct_sys / correct_gt
+        f_1 = (
+            2 * precision * recall / (precision + recall)
+            if precision + recall != 0
+            else 0
+        )
         return f_1
 
     logits = np.asarray(logits)
@@ -98,17 +249,18 @@ def f1_eval(logits, labels_all):
         if len(label) == 0:
             label = [36]
         labels += [label]
-    assert(len(labels) == len(logits))
-    
+    assert len(labels) == len(logits)
+
     bestT2 = bestf_1 = 0
     for T2 in range(51):
-        devp = getpred(logits, T2=T2/100.)
+        devp = getpred(logits, T2=T2 / 100.0)
         f_1 = geteval(devp, labels)
         if f_1 > bestf_1:
             bestf_1 = f_1
-            bestT2 = T2/100.
+            bestT2 = T2 / 100.0
 
     return bestf_1, bestT2
+
 
 def accuracy(out, labels):
     out = out.reshape(-1)
@@ -151,42 +303,41 @@ def set_optimizer_params_grad(
         param_opti.grad.data.copy_(param_model.grad.data)
     return is_nan
 
+"""
+python tucore_gcn_transformers/tucore_gcn_bert_train.py --do_train --do_eval --output_dir tucore_gcn_bert_test1
+"""
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data_dir",
-        default=None,
+        default="datasets/DialogRE",
         type=str,
-        required=True,
         help="The input data dir. Should contain the .tsv files (or other data files) for the task.",
     )
     parser.add_argument(
         "--config_file",
-        default=None,
+        default="tucore_gcn_transformers/tucore_gcn_bert_mlc.json",
         type=str,
-        required=True,
         help="The config json file corresponding to the pre-trained model. \n"
         "This specifies the model architecture.",
     )
     parser.add_argument(
         "--data_name",
-        default=None,
+        default="DialogRE",
         type=str,
-        required=True,
         help="The name of the dataset to train.",
     )
     parser.add_argument(
         "--encoder_type",
-        default=None,
+        default="BERT",
         type=str,
-        required=True,
         help="The type of pre-trained model.",
     )
     parser.add_argument(
         "--vocab_file",
-        default=None,
+        default="pre-trained_model/BERT/vocab.txt",
         type=str,
-        required=True,
         help="The vocabulary file that the model was trained on.",
     )
     parser.add_argument(
@@ -204,7 +355,7 @@ def main():
     )
     parser.add_argument(
         "--init_checkpoint",
-        default=None,
+        default="pre-trained_model/BERT/pytorch_model.bin",
         type=str,
         help="Initial checkpoint (usually from a pre-trained model).",
     )
@@ -216,7 +367,7 @@ def main():
     )
     parser.add_argument(
         "--max_seq_length",
-        default=128,
+        default=512,
         type=int,
         help="The maximum total input sequence length after WordPiece tokenization. \n"
         "Sequences longer than this will be truncated, and sequences shorter \n"
@@ -236,22 +387,22 @@ def main():
     )
     parser.add_argument(
         "--train_batch_size",
-        default=32,
+        default=6,
         type=int,
         help="Total batch size for training.",
     )
     parser.add_argument(
-        "--eval_batch_size", default=32, type=int, help="Total batch size for eval."
+        "--eval_batch_size", default=6, type=int, help="Total batch size for eval."
     )
     parser.add_argument(
         "--learning_rate",
-        default=5e-5,
+        default=1.5e-5,
         type=float,
         help="The initial learning rate for Adam.",
     )
     parser.add_argument(
         "--num_train_epochs",
-        default=3.0,
+        default=20.0,
         type=float,
         help="Total number of training epochs to perform.",
     )
@@ -326,7 +477,7 @@ def main():
         raise ValueError("Data not found: %s" % (args.data_name))
     n_class = n_classes[args.data_name]
     # Too poor to afford more than 1 GPU
-    device = torch.device("cuda", args.local_rank)
+    device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
     n_gpu = 1
     logger.info(
         "device %s n_gpu %d distributed training %r",
@@ -367,9 +518,7 @@ def main():
         vocab_file=args.vocab_file, do_lower_case=args.do_lower_case
     )
     # updated datasets repo
-    tucore_dataset = TUCOREGCNDataset()
-    tucore_dataset.download_and_prepare()
-    tucore_data = tucore_dataset.as_dataset()
+    tucore_data = datasets.load_from_disk("./datasets/DialogRE/arrow/")
     train_set, test_set = tucore_data["train"], tucore_data["test"]
     num_train_steps = int(
         len(train_set)
@@ -377,11 +526,21 @@ def main():
         / args.gradient_accumulation_steps
         * args.num_train_epochs
     )
-    model = TUCOREGCN_BertForSequenceClassification(config, n_class)
+    '''
+    model = other_tucore(config, 36)
     if args.init_checkpoint is not None:
         model.bert.load_state_dict(
             torch.load(args.init_checkpoint, map_location="cpu"), strict=False
         )
+    '''
+    #'''
+    model = TUCOREGCN_BertForSequenceClassification(config)
+    if args.init_checkpoint is not None:
+        model.tucoregcn_bert.bert.load_state_dict(
+            torch.load(args.init_checkpoint, map_location="cpu"), strict=False
+        )
+    #'''
+    model.to(device)
     no_decay = ["bias", "weight", "bias"]
     param_optimizer = list(model.named_parameters())
     optimizer_grouped_parameters = [
@@ -417,28 +576,29 @@ def main():
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
 
-            for step in trange(start=0, stop=train_n_batches):
+            for step in tqdm(range(0, train_n_batches)):
                 shard = train_set.shard(num_shards=train_n_batches, index=step)
                 # need to reload dataset with label_ids bc I forgor
-                label_ids = torch.LongTensor(shard["label_ids"]).to(device)
-                input_ids = torch.LongTensor(shard["input_ids"]).to(device)
-                segment_ids = torch.LongTensor(shard["segment_ids"]).to(device)
-                input_masks = torch.LongTensor(shard["input_mask"]).to(device)
-                mention_ids = torch.LongTensor(shard["mention_ids"]).to(device)
-                speaker_ids = torch.LongTensor(shard["speaker_ids"]).to(device)
-                turn_mask = torch.LongTensor(shard["turn_masks"]).to(device)
-                graphs = [pickle.loads(g) for g in shard["graph"]]
-
-                loss, _ = model(
+                label_ids = torch.LongTensor(shard["label_ids"]).contiguous().to(device).float()
+                input_ids = torch.LongTensor(shard["input_ids"]).contiguous().to(device)
+                segment_ids = torch.LongTensor(shard["segment_ids"]).contiguous().to(device)
+                input_masks = torch.LongTensor(shard["input_mask"]).contiguous().to(device)
+                mention_ids = torch.LongTensor(shard["mention_ids"]).contiguous().to(device)
+                speaker_ids = torch.LongTensor(shard["speaker_ids"]).contiguous().to(device)
+                turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(device)
+                # forgot to flatten the list 1
+                graphs = [pickle.loads(g)[0].to(device) for g in shard["graph"]]
+                outputs= model(
                     input_ids=input_ids,
                     token_type_ids=segment_ids,
                     attention_mask=input_masks,
                     speaker_ids=speaker_ids,
                     graphs=graphs,
-                    mention_id=mention_ids,
+                    mention_ids=mention_ids,
                     labels=label_ids,
                     turn_mask=turn_mask,
                 )
+                loss = outputs.loss
                 if n_gpu > 1:
                     loss = loss.mean()
                 if args.fp16 and args.loss_scale != 1.0:
@@ -483,16 +643,17 @@ def main():
             for step in trange(start=0, stop=test_n_batches):
                 shard = test_set.shard(num_shards=test_n_batches, index=step)
                 # need to reload dataset with label_ids bc I forgor
-                label_ids = torch.LongTensor(shard["label_ids"]).to(device)
-                input_ids = torch.LongTensor(shard["input_ids"]).to(device)
-                segment_ids = torch.LongTensor(shard["segment_ids"]).to(device)
-                input_masks = torch.LongTensor(shard["input_mask"]).to(device)
-                mention_ids = torch.LongTensor(shard["mention_ids"]).to(device)
-                speaker_ids = torch.LongTensor(shard["speaker_ids"]).to(device)
-                turn_mask = torch.LongTensor(shard["turn_masks"]).to(device)
-                graphs = [pickle.loads(g) for g in shard["graph"]]
+                label_ids = torch.Tensor(shard["label_ids"]).contiguous().to(device).float()
+                input_ids = torch.LongTensor(shard["input_ids"]).contiguous().to(device)
+                segment_ids = torch.LongTensor(shard["segment_ids"]).contiguous().to(device)
+                input_masks = torch.LongTensor(shard["input_mask"]).contiguous().to(device)
+                mention_ids = torch.LongTensor(shard["mention_ids"]).contiguous().to(device)
+                speaker_ids = torch.LongTensor(shard["speaker_ids"]).contiguous().to(device)
+                turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(device)
+                # forgot to flatten the list 2
+                graphs = [pickle.loads(g)[0] for g in shard["graph"]]
                 with torch.no_grad():
-                    tmp_eval_loss, logits = model(
+                    outputs = model(
                         input_ids=input_ids,
                         token_type_ids=segment_ids,
                         attention_mask=input_masks,
@@ -502,7 +663,7 @@ def main():
                         labels=label_ids,
                         turn_mask=turn_mask,
                     )
-
+                tmp_eval_loss, logits = outputs.loss, outputs.logits
                 logits = logits.detach().cpu().numpy()
                 label_ids = label_ids.to("cpu").numpy()
                 for i in range(len(logits)):
@@ -552,7 +713,9 @@ def main():
                         os.path.join(args.output_dir, "model_best.pt"),
                     )
                     best_metric = eval_accuracy
-        model.load_state_dict(torch.load(os.path.join(args.output_dir, "model_best.pt")))
+        model.load_state_dict(
+            torch.load(os.path.join(args.output_dir, "model_best.pt"))
+        )
         torch.save(model.state_dict(), os.path.join(args.output_dir, "model.pt"))
     model.load_state_dict(torch.load(os.path.join(args.output_dir, "model.pt")))
 
@@ -587,7 +750,7 @@ _URLs = {
 }
 
 
-class TUCOREGCNDatasetConfig(datasets.BuilderConfig):
+class TUCOREGCNDialogREDatasetConfig(datasets.BuilderConfig):
     r"""BuilderConfig for DialogRE"""
 
     def __init__(self, **kwargs):
@@ -595,10 +758,10 @@ class TUCOREGCNDatasetConfig(datasets.BuilderConfig):
         Args:
           **kwargs: keyword arguments forwarded to super.
         """
-        super(TUCOREGCNDatasetConfig, self).__init__(**kwargs)
+        super(TUCOREGCNDialogREDatasetConfig, self).__init__(**kwargs)
 
 
-class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
+class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
     r"""DialogRE: Human-annotated dialogue-based relation extraction dataset Version 2
 
     Adapted from https://huggingface.co/datasets/dialog_re, https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py
@@ -609,13 +772,13 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
         Added preprocessing to _generate_examples.
     """
 
-    VERSION = datasets.Version("1.1.0")
+    VERSION = datasets.Version("1.0.0")
 
     BUILDER_CONFIGS = [
-        TUCOREGCNDatasetConfig(
-            name="dialog_re",
-            version=datasets.Version("1.1.0"),
-            description="DialogRE: Human-annotated dialogue-based relation extraction dataset",
+        TUCOREGCNDialogREDatasetConfig(
+            name="tucore_gcn_dialog_re",
+            version=datasets.Version("1.0.0"),
+            description="DialogRE dataset formatted for Dialog Relation Extraction task by TUCORE-GCN",
         ),
     ]
 
@@ -758,6 +921,7 @@ class TUCOREGCNDataset(datasets.GeneratorBasedBuilder):
                             "turn_masks": turn_masks[0],
                             "graph": pickle.dumps(graph),
                         }
+
 
 if __name__ == "__main__":
     main()

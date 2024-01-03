@@ -45,11 +45,11 @@
 import numpy as np
 
 from transformers import Pipeline
-from tucore_gcn_transformers.tucore_gcn_bert_tokenizer import (
+from tucore_gcn_bert_tokenizer import (
     SPEAKER_TOKENS,
     SpeakerBertTokenizer,
 )
-from tucore_gcn_transformers.tucore_gcn_bert_processor import (
+from tucore_gcn_bert_processor import (
     Conversation,
     SpeakerRelation,
     Message,
@@ -493,7 +493,6 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
         )
     >>> speaker_tokenizer = SpeakerBertTokenizer.from_pretrained('bert-base-uncased')
     >>> model = TUCOREGCN_BertForSequenceClassification(TUCOREGCN_BertConfig.from_json_file("../models/BERT/tucoregcn_bert_mlc.json"))
-    >>> model.cuda()
     >>> model.load_state_dict(torch.load("../TUCOREGCN_BERT_DialogRE/tucoregcn_pytorch_model.pt"))
     >>> model.cuda()
     >>> classifier = pipeline("conversational-sequence-classification", model=model, tokenizer=speaker_tokenizer, device="cuda:0", n_class=36, max_seq_length=512)

@@ -71,6 +71,7 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+from torch.profiler import profile, record_function, ProfilerActivity
 
 from transformers.activations import ACT2FN
 from transformers.modeling_outputs import (
@@ -128,7 +129,6 @@ _QA_TARGET_END_INDEX = 15
 _CHECKPOINT_FOR_SEQUENCE_CLASSIFICATION = "textattack/bert-base-uncased-yelp-polarity"
 _SEQ_CLASS_EXPECTED_OUTPUT = "'LABEL_1'"
 _SEQ_CLASS_EXPECTED_LOSS = 0.01
-
 
 BERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "bert-base-uncased",
@@ -477,7 +477,6 @@ class BertEmbeddings(nn.Module):
         if self.position_embedding_type == "absolute":
             position_embeddings = self.position_embeddings(position_ids)
             embeddings += position_embeddings
-
         speaker_embeddings = self.speaker_embeddings(speaker_ids)
         embeddings += speaker_embeddings
         embeddings = self.LayerNorm(embeddings)
@@ -837,13 +836,15 @@ class BertLayer(nn.Module):
             # add cross-attn cache to positions 3,4 of present_key_value tuple
             cross_attn_present_key_value = cross_attention_outputs[-1]
             present_key_value = present_key_value + cross_attn_present_key_value
-
-        layer_output = apply_chunking_to_forward(
+        # remove this temporarily since chunking not implemented
+        '''layer_output = apply_chunking_to_forward(
             self.feed_forward_chunk,
             self.chunk_size_feed_forward,
             self.seq_len_dim,
             attention_output,
-        )
+        )'''
+        #temporary
+        layer_output = self.feed_forward_chunk(attention_output)
         outputs = (layer_output,) + outputs
 
         # if decoder, return the attn key/values as the last output
@@ -1780,7 +1781,6 @@ class TUCOREGCN_BertForSequenceClassification(BertPreTrainedModel):
         self.debug_ret = config.debug_ret
         # Initialize weights and apply final processing
         self.post_init()
-
     def forward(
         self,
         input_ids: Optional[torch.Tensor] = None,
@@ -1804,7 +1804,7 @@ class TUCOREGCN_BertForSequenceClassification(BertPreTrainedModel):
         return_dict = (
             return_dict if return_dict is not None else self.config.use_return_dict
         )
-
+    
         outputs = self.tucoregcn_bert(
             input_ids=input_ids,
             token_type_ids=token_type_ids,
