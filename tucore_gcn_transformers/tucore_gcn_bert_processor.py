@@ -343,19 +343,19 @@ class Conversation:
             for i in range(len(a)):
                 if a[i] is None:
                     continue
-                d = d.replace(a[i] + ":", soi[i] + ("" if remove_colons else " :"))
+                d = d.replace(a[i] + ":", " " + soi[i] + (" " if remove_colons else " :"))
             if not old_behaviour:
-                d = d.replace(relation.entity_1, soi[0])
-                d = d.replace(relation.entity_2, soi[1])
-            d = d.replace("Speaker 1:", SPEAKER_TOKENS.SPEAKER_1 + ("" if remove_colons else " :"))
-            d = d.replace("Speaker 2:", SPEAKER_TOKENS.SPEAKER_2 + ("" if remove_colons else " :"))
-            d = d.replace("Speaker 3:", SPEAKER_TOKENS.SPEAKER_3 + ("" if remove_colons else " :"))
-            d = d.replace("Speaker 4:", SPEAKER_TOKENS.SPEAKER_4 + ("" if remove_colons else " :"))
-            d = d.replace("Speaker 5:", SPEAKER_TOKENS.SPEAKER_5 + ("" if remove_colons else " :"))
-            d = d.replace("Speaker 6:", SPEAKER_TOKENS.SPEAKER_6 + ("" if remove_colons else " :"))
-            d = d.replace("Speaker 7:", SPEAKER_TOKENS.SPEAKER_7 + ("" if remove_colons else " :"))
-            d = d.replace("Speaker 8:", SPEAKER_TOKENS.SPEAKER_8 + ("" if remove_colons else " :"))
-            d = d.replace("Speaker 9:", SPEAKER_TOKENS.SPEAKER_9 + ("" if remove_colons else " :"))
+                d = d.replace(relation.entity_1, " " + soi[0] + " ")
+                d = d.replace(relation.entity_2, " " + soi[1] + " ")
+            d = d.replace("Speaker 1:", " " + SPEAKER_TOKENS.SPEAKER_1 + (" " if remove_colons else " :"))
+            d = d.replace("Speaker 2:", " " + SPEAKER_TOKENS.SPEAKER_2 + (" " if remove_colons else " :"))
+            d = d.replace("Speaker 3:", " " + SPEAKER_TOKENS.SPEAKER_3 + (" " if remove_colons else " :"))
+            d = d.replace("Speaker 4:", " " + SPEAKER_TOKENS.SPEAKER_4 + (" " if remove_colons else " :"))
+            d = d.replace("Speaker 5:", " " + SPEAKER_TOKENS.SPEAKER_5 + (" " if remove_colons else " :"))
+            d = d.replace("Speaker 6:", " " + SPEAKER_TOKENS.SPEAKER_6 + (" " if remove_colons else " :"))
+            d = d.replace("Speaker 7:", " " + SPEAKER_TOKENS.SPEAKER_7 + (" " if remove_colons else " :"))
+            d = d.replace("Speaker 8:", " " + SPEAKER_TOKENS.SPEAKER_8 + (" " if remove_colons else " :"))
+            d = d.replace("Speaker 9:", " " + SPEAKER_TOKENS.SPEAKER_9 + (" " if remove_colons else " :"))
             ret_dialog.append(d)
         if old_behaviour:
             for i in range(len(a)):
@@ -380,6 +380,13 @@ class Conversation:
                 > max_seq_length
             ):
                 break
+                # try out removing entries>sequence length
+                '''
+                return {
+                    "dialog": "",
+                    "relation": {"entity_1": relation.entity_1, "entity_2": relation.entity_2, "rid": relation.rid},
+                }
+                '''
             count += line_len
             lim_dialog.append(line)
         return {

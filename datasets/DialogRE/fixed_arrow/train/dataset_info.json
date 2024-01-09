@@ -1,0 +1,117 @@
+{
+  "builder_name": "tucore_gcn_bert_train",
+  "citation": "@inproceedings{yu2020dialogue,\n  title={Dialogue-Based Relation Extraction},\n  author={Yu, Dian and Sun, Kai and Cardie, Claire and Yu, Dong},\n  booktitle={Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics},\n  year={2020},\n  url={https://arxiv.org/abs/2004.08056v1}\n}\n",
+  "config_name": "tucore_gcn_dialog_re",
+  "dataset_name": "tucore_gcn_bert_train",
+  "dataset_size": 199764747,
+  "description": "DialogRE is the first human-annotated dialogue based relation extraction (RE) dataset aiming\nto support the prediction of relation(s) between two arguments that appear in a dialogue.\nThe dataset annotates all occurrences of 36 possible relation types that exist between pairs\nof arguments in the 1,788 dialogues originating from the complete transcripts of Friends.\n",
+  "download_checksums": {
+    "https://raw.githubusercontent.com/nlpdata/dialogre/master/data_v2/en/data/train.json": {
+      "num_bytes": 2338606,
+      "checksum": null
+    },
+    "https://raw.githubusercontent.com/nlpdata/dialogre/master/data_v2/en/data/dev.json": {
+      "num_bytes": 751932,
+      "checksum": null
+    },
+    "https://raw.githubusercontent.com/nlpdata/dialogre/master/data_v2/en/data/test.json": {
+      "num_bytes": 725696,
+      "checksum": null
+    }
+  },
+  "download_size": 3816234,
+  "features": {
+    "tokens": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "label_ids": {
+      "feature": {
+        "dtype": "int32",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "input_ids": {
+      "feature": {
+        "dtype": "int32",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "input_mask": {
+      "feature": {
+        "dtype": "int32",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "segment_ids": {
+      "feature": {
+        "dtype": "int32",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "speaker_ids": {
+      "feature": {
+        "dtype": "int32",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "mention_ids": {
+      "feature": {
+        "dtype": "int32",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "turn_masks": {
+      "feature": {
+        "feature": {
+          "dtype": "bool",
+          "_type": "Value"
+        },
+        "_type": "Sequence"
+      },
+      "_type": "Sequence"
+    },
+    "graph": {
+      "dtype": "binary",
+      "_type": "Value"
+    }
+  },
+  "homepage": "https://github.com/nlpdata/dialogre",
+  "license": "https://github.com/nlpdata/dialogre/blob/master/license.txt",
+  "size_in_bytes": 203580981,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 122568849,
+      "num_examples": 5991,
+      "dataset_name": "tucore_gcn_bert_train"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 37969281,
+      "num_examples": 1862,
+      "dataset_name": "tucore_gcn_bert_train"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 39226617,
+      "num_examples": 1914,
+      "dataset_name": "tucore_gcn_bert_train"
+    }
+  },
+  "version": {
+    "version_str": "1.0.0",
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  }
+}

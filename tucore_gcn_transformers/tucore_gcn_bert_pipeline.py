@@ -88,7 +88,7 @@ def create_input_mask(sequence, entity_1, entity_2):
         + [1] * len(entity_1)
         + [1]
         + [1] * len(entity_2)
-        + [0]
+        + [1]
     )
 
 
@@ -115,10 +115,15 @@ def create_speaker_ids(
 ):
     input_speaker_ids = []
     current_speaker_id = 0
-    for token in sequence:
-        if speaker_tokenizer.is_speaker(token):
+    speakers = []
+    for i in range(len(sequence)-1):
+        token=sequence[i]
+        colon = sequence[i+1]
+        if speaker_tokenizer.is_speaker(token) and colon==":":
             current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
+            speakers.append(token)
         input_speaker_ids.append(current_speaker_id)
+    input_speaker_ids.append(current_speaker_id)
     if old_behaviour:
         return (
             [0]
@@ -126,14 +131,14 @@ def create_speaker_ids(
             + [0]
             + [
                 speaker_tokenizer.convert_speaker_to_id(entity_1_raw)
-                if speaker_tokenizer.is_speaker(entity_1_raw)
+                if speaker_tokenizer.is_speaker(entity_1_raw) and entity_1_raw in speakers
                 else 0
             ]
             * len(entity_1)
             + [0]
             + [
                 speaker_tokenizer.convert_speaker_to_id(entity_2_raw)
-                if speaker_tokenizer.is_speaker(entity_2_raw)
+                if speaker_tokenizer.is_speaker(entity_2_raw) and entity_2_raw in speakers
                 else 0
             ]
             * len(entity_2)
@@ -154,10 +159,13 @@ def create_speaker_ids(
 def create_mention_ids(sequence, entity_1, entity_2, speaker_tokenizer, old_behaviour):
     input_mention_ids = []
     current_speaker_idx = 0
-    for token in sequence:
-        if speaker_tokenizer.is_speaker(token):
+    for i in range(len(sequence)-1):
+        token=sequence[i]
+        colon = sequence[i+1]
+        if speaker_tokenizer.is_speaker(token) and colon==":":
             current_speaker_idx += 1
         input_mention_ids.append(current_speaker_idx)
+    input_mention_ids.append(current_speaker_idx)
     if old_behaviour:
         return (
             [0]
@@ -524,7 +532,7 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
         inputs, sequence, entity_1, entity_2 = create_inputs(
             conversation, speaker_tokenizer
         )
-        return create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, max_seq_length)
+        return create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length)
 
     def _forward(self, model_inputs):  # model_inputs == {"model_input": model_input}
         (

@@ -303,8 +303,47 @@ def set_optimizer_params_grad(
         param_opti.grad.data.copy_(param_model.grad.data)
     return is_nan
 
+def get_logits4eval(model, dataset, batch_size, savefile, device):
+    model.eval()
+    logits_all = []
+    n_batches = len(dataset) // batch_size
+    for step in tqdm(range(n_batches), desc="Iteration"):
+        shard = dataset.shard(num_shards=n_batches, index=step)
+        label_ids = torch.LongTensor(shard["label_ids"]).contiguous().to(device).float()
+        input_ids = torch.LongTensor(shard["input_ids"]).contiguous().to(device)
+        segment_ids = torch.LongTensor(shard["segment_ids"]).contiguous().to(device)
+        input_masks = torch.LongTensor(shard["input_mask"]).contiguous().to(device)
+        mention_ids = torch.LongTensor(shard["mention_ids"]).contiguous().to(device)
+        speaker_ids = torch.LongTensor(shard["speaker_ids"]).contiguous().to(device)
+        turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(device)
+        # forgot to flatten the list 1
+        graphs = [pickle.loads(g)[0].to(device) for g in shard["graph"]]
+
+        with torch.no_grad():
+            output = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_ids=mention_ids, labels=label_ids, turn_mask=turn_mask)
+            logits = output.logits
+
+        logits = logits.detach().cpu().numpy()
+        for i in range(len(logits)):
+            logits_all += [logits[i]]
+
+    with open(savefile, "w") as f:
+        for i in range(len(logits_all)):
+            for j in range(len(logits_all[i])):
+                f.write(str(logits_all[i][j]))
+                if j == len(logits_all[i])-1:
+                    f.write("\n")
+                else:
+                    f.write(" ")
+
 """
 python tucore_gcn_transformers/tucore_gcn_bert_train.py --do_train --do_eval --output_dir tucore_gcn_bert_test1
+python tucore_gcn_transformers/tucore_gcn_bert_train.py --do_train --do_eval --output_dir tucore_gcn_bert_test1 --num_train_epochs 1
+python tucore_gcn_transformers/tucore_gcn_bert_train.py --do_train --do_eval --output_dir tucore_gcn_bert_test1 --num_train_epochs 1 --resume [X]
+python tucore_gcn_transformers/tucore_gcn_bert_train.py --do_train --do_eval --do_test_eval 1 --output_dir TUCOREGCN_BERT_DialogRE --num_train_epochs 1 --resume 69 --eval_batch_size 32
+4.0gb
+2.9gb
+seq_length of 512
 """
 
 def main():
@@ -386,17 +425,23 @@ def main():
         help="Whether to run eval on the dev set.",
     )
     parser.add_argument(
+        "--do_test_eval",
+        default=0,
+        type=int,
+        help="Whether to run eval on the dev set.",
+    )
+    parser.add_argument(
         "--train_batch_size",
-        default=6,
+        default=12,
         type=int,
         help="Total batch size for training.",
     )
     parser.add_argument(
-        "--eval_batch_size", default=6, type=int, help="Total batch size for eval."
+        "--eval_batch_size", default=12, type=int, help="Total batch size for eval."
     )
     parser.add_argument(
         "--learning_rate",
-        default=1.5e-5,
+        default=3e-5,
         type=float,
         help="The initial learning rate for Adam.",
     )
@@ -460,8 +505,8 @@ def main():
     )
     parser.add_argument(
         "--resume",
-        default=False,
-        action="store_true",
+        default=-1,
+        type=int,
         help="Whether to resume the training.",
     )
     parser.add_argument(
@@ -485,6 +530,10 @@ def main():
         n_gpu,
         bool(args.local_rank != -1),
     )
+    if args.gradient_accumulation_steps < 1:
+        raise ValueError("Invalid gradient_accumulation_steps parameter: {}, should be >= 1".format(
+                            args.gradient_accumulation_steps))
+    args.train_batch_size = int(args.train_batch_size / args.gradient_accumulation_steps)
     # Consistently get subpar f1c
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -505,7 +554,7 @@ def main():
         )
     # Don't overwrite last session's test model
     if os.path.exists(args.output_dir) and "model.pt" in os.listdir(args.output_dir):
-        if args.do_train and not args.resume:
+        if args.do_train and args.resume==-1:
             raise ValueError(
                 "Output directory ({}) already exists and is not empty.".format(
                     args.output_dir
@@ -520,6 +569,9 @@ def main():
     # updated datasets repo
     tucore_data = datasets.load_from_disk("./datasets/DialogRE/arrow/")
     train_set, test_set = tucore_data["train"], tucore_data["test"]
+    # below sets train_set and test_set to small subset for testings
+    #train_set = train_set.shard(num_shards=100, index=0)
+    #test_set = test_set.shard(num_shards=40, index=0)
     num_train_steps = int(
         len(train_set)
         / args.train_batch_size
@@ -559,88 +611,91 @@ def main():
         warmup=args.warmup_proportion,
         t_total=num_train_steps,
     )
+    epoch_start = 0
     global_step = 0
-    if args.resume:
-        model.load_state_dict(torch.load(os.path.join(args.output_dir, "model.pt")))
+    if args.resume!=-1:
+        model.load_state_dict(torch.load(os.path.join(args.output_dir, f"{args.resume}.pt")))
+        epoch_start = args.resume+1
     if args.do_train:
         best_metric = 0
         train_n_batches = len(train_set) // args.train_batch_size
-        test_n_batches = len(test_set) // args.train_batch_size
+        test_n_batches = len(test_set) // args.eval_batch_size
         logger.info("***** Running training *****")
         logger.info("  Num examples = %d", len(train_set))
         logger.info("  Batch size = %d", args.train_batch_size)
         logger.info("  Num steps = %d", num_train_steps)
 
-        for _ in trange(int(args.num_train_epochs), desc="Epoch"):
-            model.train()
-            tr_loss = 0
-            nb_tr_examples, nb_tr_steps = 0, 0
+        for epoch in trange(epoch_start, int(args.num_train_epochs)+epoch_start, desc="Epoch"):
+            if args.do_test_eval==0:
+                model.train()
+                tr_loss = 0
+                nb_tr_examples, nb_tr_steps = 0, 0
 
-            for step in tqdm(range(0, train_n_batches)):
-                shard = train_set.shard(num_shards=train_n_batches, index=step)
-                # need to reload dataset with label_ids bc I forgor
-                label_ids = torch.LongTensor(shard["label_ids"]).contiguous().to(device).float()
-                input_ids = torch.LongTensor(shard["input_ids"]).contiguous().to(device)
-                segment_ids = torch.LongTensor(shard["segment_ids"]).contiguous().to(device)
-                input_masks = torch.LongTensor(shard["input_mask"]).contiguous().to(device)
-                mention_ids = torch.LongTensor(shard["mention_ids"]).contiguous().to(device)
-                speaker_ids = torch.LongTensor(shard["speaker_ids"]).contiguous().to(device)
-                turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(device)
-                # forgot to flatten the list 1
-                graphs = [pickle.loads(g)[0].to(device) for g in shard["graph"]]
-                outputs= model(
-                    input_ids=input_ids,
-                    token_type_ids=segment_ids,
-                    attention_mask=input_masks,
-                    speaker_ids=speaker_ids,
-                    graphs=graphs,
-                    mention_ids=mention_ids,
-                    labels=label_ids,
-                    turn_mask=turn_mask,
-                )
-                loss = outputs.loss
-                if n_gpu > 1:
-                    loss = loss.mean()
-                if args.fp16 and args.loss_scale != 1.0:
-                    # rescale loss for fp16 training
-                    # see https://docs.nvidia.com/deeplearning/sdk/mixed-precision-training/index.html
-                    loss = loss * args.loss_scale
-                if args.gradient_accumulation_steps > 1:
-                    loss = loss / args.gradient_accumulation_steps
-                loss.backward()
-                tr_loss += loss.item()
-                nb_tr_examples += input_ids.size(0)
-                nb_tr_steps += 1
-                if (step + 1) % args.gradient_accumulation_steps == 0:
-                    if args.fp16 or args.optimize_on_cpu:
-                        if args.fp16 and args.loss_scale != 1.0:
-                            # scale down gradients for fp16 training
-                            for param in model.parameters():
-                                param.grad.data = param.grad.data / args.loss_scale
-                        is_nan = set_optimizer_params_grad(
-                            param_optimizer, model.named_parameters(), test_nan=True
-                        )
-                        if is_nan:
-                            logger.info(
-                                "FP16 TRAINING: Nan in gradients, reducing loss scaling"
+                for step in tqdm(range(0, train_n_batches)):
+                    shard = train_set.shard(num_shards=train_n_batches, index=step)
+                    # need to reload dataset with label_ids bc I forgor
+                    label_ids = torch.LongTensor(shard["label_ids"]).contiguous().to(device).float()
+                    input_ids = torch.LongTensor(shard["input_ids"]).contiguous().to(device)
+                    segment_ids = torch.LongTensor(shard["segment_ids"]).contiguous().to(device)
+                    input_masks = torch.LongTensor(shard["input_mask"]).contiguous().to(device)
+                    mention_ids = torch.LongTensor(shard["mention_ids"]).contiguous().to(device)
+                    speaker_ids = torch.LongTensor(shard["speaker_ids"]).contiguous().to(device)
+                    turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(device)
+                    # forgot to flatten the list 1
+                    graphs = [pickle.loads(g)[0].to(device) for g in shard["graph"]]
+                    outputs= model(
+                        input_ids=input_ids,
+                        token_type_ids=segment_ids,
+                        attention_mask=input_masks,
+                        speaker_ids=speaker_ids,
+                        graphs=graphs,
+                        mention_ids=mention_ids,
+                        labels=label_ids,
+                        turn_mask=turn_mask,
+                    )
+                    loss = outputs.loss
+                    if n_gpu > 1:
+                        loss = loss.mean()
+                    if args.fp16 and args.loss_scale != 1.0:
+                        # rescale loss for fp16 training
+                        # see https://docs.nvidia.com/deeplearning/sdk/mixed-precision-training/index.html
+                        loss = loss * args.loss_scale
+                    if args.gradient_accumulation_steps > 1:
+                        loss = loss / args.gradient_accumulation_steps
+                    loss.backward()
+                    tr_loss += loss.item()
+                    nb_tr_examples += input_ids.size(0)
+                    nb_tr_steps += 1
+                    if (step + 1) % args.gradient_accumulation_steps == 0:
+                        if args.fp16 or args.optimize_on_cpu:
+                            if args.fp16 and args.loss_scale != 1.0:
+                                # scale down gradients for fp16 training
+                                for param in model.parameters():
+                                    param.grad.data = param.grad.data / args.loss_scale
+                            is_nan = set_optimizer_params_grad(
+                                param_optimizer, model.named_parameters(), test_nan=True
                             )
-                            args.loss_scale = args.loss_scale / 2
-                            model.zero_grad()
-                            continue
-                        optimizer.step()
-                        copy_optimizer_params_to_model(
-                            model.named_parameters(), param_optimizer
-                        )
-                    else:
-                        optimizer.step()
-                    model.zero_grad()
-                    global_step += 1
+                            if is_nan:
+                                logger.info(
+                                    "FP16 TRAINING: Nan in gradients, reducing loss scaling"
+                                )
+                                args.loss_scale = args.loss_scale / 2
+                                model.zero_grad()
+                                continue
+                            optimizer.step()
+                            copy_optimizer_params_to_model(
+                                model.named_parameters(), param_optimizer
+                            )
+                        else:
+                            optimizer.step()
+                        model.zero_grad()
+                        global_step += 1
             model.eval()
             eval_loss, eval_accuracy = 0, 0
             nb_eval_steps, nb_eval_examples = 0, 0
             logits_all = []
             labels_all = []
-            for step in trange(start=0, stop=test_n_batches):
+            for step in tqdm(range(0, test_n_batches)):
                 shard = test_set.shard(num_shards=test_n_batches, index=step)
                 # need to reload dataset with label_ids bc I forgor
                 label_ids = torch.Tensor(shard["label_ids"]).contiguous().to(device).float()
@@ -651,7 +706,7 @@ def main():
                 speaker_ids = torch.LongTensor(shard["speaker_ids"]).contiguous().to(device)
                 turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(device)
                 # forgot to flatten the list 2
-                graphs = [pickle.loads(g)[0] for g in shard["graph"]]
+                graphs = [pickle.loads(g)[0].to(device) for g in shard["graph"]]
                 with torch.no_grad():
                     outputs = model(
                         input_ids=input_ids,
@@ -659,7 +714,7 @@ def main():
                         attention_mask=input_masks,
                         speaker_ids=speaker_ids,
                         graphs=graphs,
-                        mention_id=mention_ids,
+                        mention_ids=mention_ids,
                         labels=label_ids,
                         turn_mask=turn_mask,
                     )
@@ -681,7 +736,7 @@ def main():
             eval_loss = eval_loss / nb_eval_steps
             eval_accuracy = eval_accuracy / nb_eval_examples
 
-            if args.do_train:
+            if args.do_train and args.do_test_eval==0:
                 result = {
                     "eval_loss": eval_loss,
                     "global_step": global_step,
@@ -713,6 +768,11 @@ def main():
                         os.path.join(args.output_dir, "model_best.pt"),
                     )
                     best_metric = eval_accuracy
+            if args.do_test_eval==0:
+                torch.save(
+                    model.state_dict(),
+                    os.path.join(args.output_dir, f"{epoch}.pt"),
+                )
         model.load_state_dict(
             torch.load(os.path.join(args.output_dir, "model_best.pt"))
         )
