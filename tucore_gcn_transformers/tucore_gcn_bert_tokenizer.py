@@ -197,6 +197,7 @@ class SpeakerBertTokenizer(BertTokenizer):
         mask_token="[MASK]",
         tokenize_chinese_chars=True,
         strip_accents: bool = None,
+        old_behavior = True,
         **kwargs,
     ):
         super().__init__(
@@ -213,10 +214,10 @@ class SpeakerBertTokenizer(BertTokenizer):
             strip_accents,
             **kwargs,
         )
+        self.old_behavior = old_behavior
         self.basic_tokenizer.never_split = set(
-            self.all_special_tokens + list(self.speaker2id.keys())
+            self.all_special_tokens + (list(self.speaker2id.keys()) if not old_behavior else [SPEAKER_TOKENS.ENTITY_1, SPEAKER_TOKENS.ENTITY_2])
         )
-
     def _tokenize(self, text: str, split_special_tokens=False):
         r"""BertTokenizer's internal tokenize method
 
@@ -234,12 +235,14 @@ class SpeakerBertTokenizer(BertTokenizer):
         """
         split_tokens = []
         if self.do_basic_tokenize:
+            wordpieces = []
+            wordpiece_workaround = True
             for token in self.basic_tokenizer.tokenize(
                 text,
-                never_split=set(self.all_special_tokens + list(self.speaker2id.keys()))
+                never_split=set(self.all_special_tokens + list(self.speaker2id.keys()) if not self.old_behavior else [SPEAKER_TOKENS.ENTITY_1, SPEAKER_TOKENS.ENTITY_2])
                 if not split_special_tokens
                 else None,
-            ):
+            ):  
                 # If the token is part of the never_split set
                 if token in self.basic_tokenizer.never_split:
                     split_tokens.append(token)
@@ -255,14 +258,20 @@ class SpeakerBertTokenizer(BertTokenizer):
 
     def convert_speaker_to_id(self, token):
         r"""Convert token to a pre-defined speaker using speaker2id"""
-        return self.speaker2id[token]
+        if (not self.old_behavior) or (token==SPEAKER_TOKENS.ENTITY_1 or token==SPEAKER_TOKENS.ENTITY_2):
+            return self.speaker2id[token]
+        else:
+            return token
 
     def _convert_token_to_id(self, token):
         r"""Converts a token (str) in an id using the vocab.
 
         If the token maps to a valid speaker, it is converted to its respective speaker id instead.
         """
-        if token in self.speaker2id:
+        if (self.old_behavior and (token==SPEAKER_TOKENS.ENTITY_1 or token==SPEAKER_TOKENS.ENTITY_2)):
+            # The original paper uses ids 2 and 3 as entity tokens in input_ids
+            return 2 if token==SPEAKER_TOKENS.ENTITY_1 else 3
+        if (not self.old_behavior and token in self.speaker2id):
             return self.speaker2id[token]
         else:
             return self.vocab.get(token, self.vocab.get(self.unk_token))
@@ -272,7 +281,9 @@ class SpeakerBertTokenizer(BertTokenizer):
 
         If the id maps to a speaker, it is converted to its respective speaker token instead.
         """
-        if str(index) in self.id2speaker:
+        if (self.old_behavior and (index==2 or index==3)):
+            return SPEAKER_TOKENS.ENTITY_1 if index==2 else SPEAKER_TOKENS.ENTITY_2
+        elif (not self.old_behavior and str(index) in self.id2speaker):
             return self.speaker2id[str(index)]
         else:
             return self.ids_to_tokens.get(index, self.unk_token)

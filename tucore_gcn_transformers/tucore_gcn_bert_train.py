@@ -914,13 +914,13 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
         )
 
     def _generate_examples(
-        self, filepath, split, max_seq_length=512, for_f1c=False, old_behaviour=False
+        self, filepath, split, max_seq_length=512, for_f1c=False, old_behaviour=False, shuffle_train=True
     ):
         r"""Yields examples."""
         speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
         with open(filepath, encoding="utf-8") as f:
             dataset = json.load(f)
-            if split == "train" and not for_f1c:
+            if split == "train" and not for_f1c and shuffle_train:
                 random.shuffle(dataset)
             for tqdm_idx, entry in tqdm_notebook(
                 enumerate(dataset), total=len(dataset)
@@ -965,7 +965,7 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
                             speaker_tokenizer.tokenize(entry["relation"]["entity_2"]),
                             speaker_tokenizer,
                             entry,
-                            True,
+                            old_behaviour,
                             36,
                             max_seq_length,
                             True,

@@ -116,14 +116,30 @@ def create_speaker_ids(
     input_speaker_ids = []
     current_speaker_id = 0
     speakers = []
-    for i in range(len(sequence)-1):
-        token=sequence[i]
-        colon = sequence[i+1]
-        if speaker_tokenizer.is_speaker(token) and colon==":":
-            current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
-            speakers.append(token)
+    if old_behaviour:
+        for i in range(len(sequence)-2):
+            token=sequence[i]
+            arg1 = sequence[i+1]
+            arg2 = sequence[i+2]
+            if speaker_tokenizer.is_speaker(token) and arg1==":":
+                current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
+                speakers.append(token)
+            elif token=='speaker' and arg1.isnumeric() and arg2==':':
+                current_speaker_id = int(arg1)
+                speakers.append(token)
+            input_speaker_ids.append(current_speaker_id)
         input_speaker_ids.append(current_speaker_id)
-    input_speaker_ids.append(current_speaker_id)
+        input_speaker_ids.append(current_speaker_id)
+    else:
+        for i in range(len(sequence)-1):
+            token=sequence[i]
+            colon = sequence[i+1]
+            if speaker_tokenizer.is_speaker(token) and colon==":":
+                current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
+                speakers.append(token)
+            input_speaker_ids.append(current_speaker_id)
+        input_speaker_ids.append(current_speaker_id)
+
     if old_behaviour:
         return (
             [0]
@@ -159,13 +175,26 @@ def create_speaker_ids(
 def create_mention_ids(sequence, entity_1, entity_2, speaker_tokenizer, old_behaviour):
     input_mention_ids = []
     current_speaker_idx = 0
-    for i in range(len(sequence)-1):
-        token=sequence[i]
-        colon = sequence[i+1]
-        if speaker_tokenizer.is_speaker(token) and colon==":":
-            current_speaker_idx += 1
+    if old_behaviour:
+        for i in range(len(sequence)-2):
+            token=sequence[i]
+            arg1 = sequence[i+1]
+            arg2 = sequence[i+2]
+            if speaker_tokenizer.is_speaker(token) and arg1==":":
+                current_speaker_idx += 1
+            elif token=='speaker' and arg1.isnumeric() and arg2==':':
+                current_speaker_idx += 1
+            input_mention_ids.append(current_speaker_idx)
         input_mention_ids.append(current_speaker_idx)
-    input_mention_ids.append(current_speaker_idx)
+        input_mention_ids.append(current_speaker_idx)
+    else:
+        for i in range(len(sequence)-1):
+            token=sequence[i]
+            colon = sequence[i+1]
+            if speaker_tokenizer.is_speaker(token) and colon==":":
+                current_speaker_idx = speaker_tokenizer.convert_speaker_to_id(token)
+            input_mention_ids.append(current_speaker_idx)
+        input_mention_ids.append(current_speaker_idx)
     if old_behaviour:
         return (
             [0]
@@ -198,7 +227,7 @@ def create_label_id(rid, n_class):
     return label_id
 
 
-def create_turn_mask(mention_id, old_behaviour=False):
+def create_turn_mask(mention_id, old_behaviour):
     r"""Build speaker-dialog edge
 
     Adapted from [https://github.com/BlackNoodle/TUCORE-GCN/blob/main/data.py]. Previously named mention2mask

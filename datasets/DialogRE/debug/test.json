@@ -1,0 +1,149 @@
+[
+  [
+    [
+      "Speaker 1: Hey!",
+      "Speaker 2: Hey.",
+      "Speaker 3: Hey, man. What's up?",
+      "Speaker 1: Maybe you can tell me. My agent would like to know why I didn't show up at the audition I didn't know I had today. The first good thing she gets me in weeks. How could you not give me the message?!",
+      "Speaker 3: Well, I'll tell ya I do enjoy guilt, but, ah, it wasn't me.",
+      "Speaker 2: Yes, it was! It was him! Uh huh! Okay, it was me!",
+      "Speaker 1: How is it you?",
+      "Speaker 2: Well, it was just, it was all so crazy, you know. I mean, Chandler was in the closet, counting to 10, and he was up to 7 and I hadn't found a place to hide yet. I-I-I meant to tell you, and I wrote it all down on my hand. See, all of it.",
+      "Speaker 1: Yep, that's my audition.",
+      "Speaker 4: See, now this is why I keep notepads everywhere.",
+      "Speaker 2: Yep, and that's why we don't invite you to play.",
+      "Speaker 5: What is the great tragedy here? You go get yourself another appointment.",
+      "Speaker 1: Well, Estelle tried, you know. The casting director told her that I missed my chance.",
+      "Speaker 2: That is unfair. I'll call her and tell her it was totally my fault.",
+      "Speaker 1: Pheebs, you can't do that. The casting director doesn't talk to friends, she only talks to agents.",
+      "Speaker 2: What a sad little life she must lead. Okay, ooh.",
+      "Speaker 1: What, what are you doing? What are you doing?",
+      "Speaker 2: No, no, no, I know, I know, ooh. 'Hi, this is Katelynn, from Phoebe Buffay's office. Um, is um, Ann there for Phoebe, she'll know what it's about.'",
+      "Speaker 1: Hang up, hang up.",
+      "Speaker 2: 'Annie! Hi. Listen we got a problem with Joey Tribbiani, apparently he missed his audition. Who did you speak to in my office? Estelle, no, I don't know what I'm going to do with her. No. All right, so your husband leaves and burns down the apartment, the world does not stop.'",
+      "Speaker 3: Is anybody else scared?",
+      "Speaker 2: 'Right, well look, um, if Joey loses this audition, that is it for Estelle. I don't care! Annie you are a doll, what time can you see him?' I need a pen.",
+      "Speaker 3: Get the woman a pad! Get the woman a pad! A pad! A pad!",
+      "Speaker 4: Oh, now you want a pad."
+    ],
+    [
+      {
+        "x": "Estelle",
+        "y": "Speaker 1",
+        "rid": [7],
+        "r": ["per:client"],
+        "t": ["agent"],
+        "x_type": "PER",
+        "y_type": "PER"
+      },
+      {
+        "x": "Estelle",
+        "y": "agent",
+        "rid": [29],
+        "r": ["per:title"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "STRING"
+      },
+      {
+        "x": "Annie",
+        "y": "casting director",
+        "rid": [29],
+        "r": ["per:title"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "STRING"
+      },
+      {
+        "x": "Speaker 1",
+        "y": "Speaker 2",
+        "rid": [9],
+        "r": ["per:friends"],
+        "t": ["friends"],
+        "x_type": "PER",
+        "y_type": "PER"
+      },
+      {
+        "x": "Speaker 1",
+        "y": "Joey Tribbiani",
+        "rid": [30],
+        "r": ["per:alternate_names"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "PER"
+      },
+      {
+        "x": "Speaker 1",
+        "y": "man",
+        "rid": [30],
+        "r": ["per:alternate_names"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "STRING"
+      },
+      {
+        "x": "Speaker 2",
+        "y": "Pheebs",
+        "rid": [30],
+        "r": ["per:alternate_names"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "PER"
+      },
+      {
+        "x": "Speaker 2",
+        "y": "Katelynn",
+        "rid": [30],
+        "r": ["per:alternate_names"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "PER"
+      },
+      {
+        "x": "Speaker 2",
+        "y": "Phoebe Buffay",
+        "rid": [30],
+        "r": ["per:alternate_names"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "PER"
+      },
+      {
+        "x": "Speaker 2",
+        "y": "Speaker 1",
+        "rid": [9],
+        "r": ["per:friends"],
+        "t": ["friends"],
+        "x_type": "PER",
+        "y_type": "PER"
+      },
+      {
+        "x": "Ann",
+        "y": "casting director",
+        "rid": [29],
+        "r": ["per:title"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "STRING"
+      },
+      {
+        "x": "Ann",
+        "y": "Annie",
+        "rid": [30],
+        "r": ["per:alternate_names"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "PER"
+      },
+      {
+        "x": "Speaker 3",
+        "y": "man",
+        "rid": [37],
+        "r": ["unanswerable"],
+        "t": [""],
+        "x_type": "PER",
+        "y_type": "STRING"
+      }
+    ]
+  ]
+]
