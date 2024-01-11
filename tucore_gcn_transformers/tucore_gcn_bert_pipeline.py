@@ -121,14 +121,26 @@ def create_speaker_ids(
             token=sequence[i]
             arg1 = sequence[i+1]
             arg2 = sequence[i+2]
-            if speaker_tokenizer.is_speaker(token) and arg1==":":
+            # The original code would check speaker whenever Speaker X: or [unusedX] was detected
+            # It produces unexpected behaviour with the input case Speaker X, Speaker Y:
+            # where 2 Speakers are conversing.
+            # The first speaker token is detected, and then the 2nd speaker token overrides the first speaker
+            # we replicate this behaviour here for parity
+            if speaker_tokenizer.is_speaker(token) and (arg1==":" or arg1==","): #entity check
                 current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
                 speakers.append(token)
-            elif token=='speaker' and arg1.isnumeric() and arg2==':':
+            elif token=='speaker' and arg1.isnumeric() and (arg2==":" or arg2=="," or arg2=="[SEP]"): #speaker check
                 current_speaker_id = int(arg1)
                 speakers.append(token)
             input_speaker_ids.append(current_speaker_id)
+        # [SEP] check is there as truncated speaker tokens are considered a change in speaker in the original code
+        if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]):
+            current_speaker_id = speaker_tokenizer.convert_speaker_to_id(sequence[len(sequence)-2])
+        elif (sequence[len(sequence)-2]=='speaker' and sequence[len(sequence)-1].isnumeric()):
+            current_speaker_id = int(sequence[len(sequence)-1])
         input_speaker_ids.append(current_speaker_id)
+        if speaker_tokenizer.is_speaker(sequence[len(sequence)-1]):
+            current_speaker_id = speaker_tokenizer.convert_speaker_to_id(sequence[len(sequence)-1])
         input_speaker_ids.append(current_speaker_id)
     else:
         for i in range(len(sequence)-1):
@@ -147,14 +159,14 @@ def create_speaker_ids(
             + [0]
             + [
                 speaker_tokenizer.convert_speaker_to_id(entity_1_raw)
-                if speaker_tokenizer.is_speaker(entity_1_raw) and entity_1_raw in speakers
+                if speaker_tokenizer.is_speaker(entity_1_raw) #and entity_1_raw in speakers
                 else 0
             ]
             * len(entity_1)
             + [0]
             + [
                 speaker_tokenizer.convert_speaker_to_id(entity_2_raw)
-                if speaker_tokenizer.is_speaker(entity_2_raw) and entity_2_raw in speakers
+                if speaker_tokenizer.is_speaker(entity_2_raw) #and entity_2_raw in speakers
                 else 0
             ]
             * len(entity_2)
@@ -180,12 +192,16 @@ def create_mention_ids(sequence, entity_1, entity_2, speaker_tokenizer, old_beha
             token=sequence[i]
             arg1 = sequence[i+1]
             arg2 = sequence[i+2]
-            if speaker_tokenizer.is_speaker(token) and arg1==":":
+            if speaker_tokenizer.is_speaker(token) and (arg1==":" or arg1==","):
                 current_speaker_idx += 1
-            elif token=='speaker' and arg1.isnumeric() and arg2==':':
+            elif token=='speaker' and arg1.isnumeric() and (arg2==":" or arg2==","):
                 current_speaker_idx += 1
             input_mention_ids.append(current_speaker_idx)
+        if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]) or (sequence[len(sequence)-2]=='speaker' and sequence[len(sequence)-1].isnumeric()):
+            current_speaker_idx += 1
         input_mention_ids.append(current_speaker_idx)
+        if speaker_tokenizer.is_speaker(sequence[len(sequence)-1]):
+            current_speaker_idx += 1
         input_mention_ids.append(current_speaker_idx)
     else:
         for i in range(len(sequence)-1):

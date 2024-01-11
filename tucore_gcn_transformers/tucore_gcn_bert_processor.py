@@ -111,6 +111,7 @@ from tucore_gcn_bert_tokenizer import (
     SpeakerBertTokenizer,
 )
 from transformers.models.bert.tokenization_bert import BertTokenizer
+import regex
 
 _CITATION = """\
 @inproceedings{yu2020dialogue,
@@ -358,6 +359,7 @@ class Conversation:
                         continue
                     d = d.replace(a[i] + ":", " " + soi[i] + (" " if remove_colons else " :"))
             ret_dialog.append(d)
+            
         if old_behaviour:
             for i in range(len(a)):
                 if a[i] is None:
@@ -380,14 +382,17 @@ class Conversation:
                 count + line_len + len(speaker_x_tokens) + len(speaker_y_tokens) + 4
                 > max_seq_length
             ):
+                # the original work would truncate inputs at 512, going as far as to truncate half words.
+                # we do the same here
                 if old_behaviour:
-                    print(tokenizer.tokenize(line))
-                    print((count + len(speaker_x_tokens) + len(speaker_y_tokens) + 4))
-                    print(max_seq_length - (count + len(speaker_x_tokens) + len(speaker_y_tokens) + 4))
-                    print(line_len)
                     line_temp = []
                     for word in tokenizer.basic_tokenizer.tokenize(line):
                         if (len(tokenizer.tokenize(word)) + count + len(speaker_x_tokens) + len(speaker_y_tokens) + 4 > max_seq_length):
+                            for token in tokenizer.tokenize(word):
+                                if (count + 1 + len(speaker_x_tokens) + len(speaker_y_tokens) + 4 > max_seq_length):
+                                    break
+                                line_temp.append(token)
+                                count+=1
                             break
                         line_temp.append(word)
                         count+=len(tokenizer.tokenize(word))

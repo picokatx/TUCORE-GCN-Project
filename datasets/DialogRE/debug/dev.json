@@ -145,5 +145,571 @@
         "y_type": "STRING"
       }
     ]
-  ]
+  ],
+  [
+    [
+     "Speaker 1, Speaker 2: Hi",
+     "Speaker 3: Hi! Hey mom.",
+     "Speaker 4: This is such a great party! 35 years. Very impressive, do you guys have any pearls of wisdom?",
+     "Speaker 2: Jack?",
+     "Speaker 1: Why would you serve food on such a sharp stick?",
+     "Speaker 3: That’s a good question, dad. That’s a good question…",
+     "Speaker 4: Hmmm…"
+    ],
+    [
+     {
+      "x": "Speaker 3",
+      "y": "Speaker 2",
+      "rid": [
+       15
+      ],
+      "r": [
+       "per:parents"
+      ],
+      "t": [
+       "mom"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 3",
+      "y": "Speaker 1",
+      "rid": [
+       15
+      ],
+      "r": [
+       "per:parents"
+      ],
+      "t": [
+       "dad"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 1",
+      "y": "Speaker 2",
+      "rid": [
+       17
+      ],
+      "r": [
+       "per:spouse"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 1",
+      "y": "Speaker 3",
+      "rid": [
+       13
+      ],
+      "r": [
+       "per:children"
+      ],
+      "t": [
+       "dad"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 1",
+      "y": "Jack",
+      "rid": [
+       30
+      ],
+      "r": [
+       "per:alternate_names"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 2",
+      "y": "Speaker 3",
+      "rid": [
+       13
+      ],
+      "r": [
+       "per:children"
+      ],
+      "t": [
+       "mom"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 2",
+      "y": "Speaker 1",
+      "rid": [
+       17
+      ],
+      "r": [
+       "per:spouse"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     }
+    ]
+   ],
+   [
+    [
+     "Speaker 1: Aren’t you gonna give me a kiss?",
+     "Speaker 2: Okay, I will. But right after you tell me who the hell you are.",
+     "Speaker 1: Ursula?",
+     "Speaker 2: Ursula’s fiancée?",
+     "Speaker 1: Oh my God, you’re the sister!",
+     "Speaker 2: Yeah.",
+     "Speaker 1: Okay, I just slapped my future sister-in-law’s ass.",
+     "Speaker 2: Yeah.",
+     "Speaker 1: I’m an idiot. Uh, is your mother here? Maybe I can give her a little slap on the butt.",
+     "Speaker 2: My mother killed herself.",
+     "Speaker 1: She, now I knew that and…now I’m sweating. Look at me, I’m really sweating—Now I’m saying, \"Look at me,\" I’m getting even sweatier. I think I probably should go.",
+     "Speaker 2: No-no! That’s okay, we’ll just start over. Okay? Hi! I’m Phoebe.",
+     "Speaker 1: Eric.",
+     "Speaker 2: Why are you looking at me like that?",
+     "Speaker 1: ‘Cause the sweat’s getting in my eyes and its burning.",
+     "Speaker 2: Okay. So, what are you?",
+     "Speaker 1: I don’t think they have a name for it. It’s just I get nervous; I start sweating like crazy.",
+     "Speaker 2: No I-I meant your costume.",
+     "Speaker 1: Oh umm, I’m the solar system. Yeah, my students helped me make it—I teach the second grade.",
+     "Speaker 2: I love the second grade!",
+     "Speaker 1: Really?",
+     "Speaker 2: Yeah! It’s so much better than first grade when you don’t know what’s going on and definitely better than third grade. Y’know with all the politics and mind games.",
+     "Speaker 1: So what do you do?",
+     "Speaker 2: Umm, I’m a masseuse…by day.",
+     "Speaker 1: Y’know you don’t have to stand here with me, believe me…",
+     "Speaker 2: No I’m having fun. I’m really—And I’m really-really excited for you and Ursula.",
+     "Speaker 1: Oh I feel very lucky, she’s great. I think she’s the most beautiful woman I’ve ever seen.",
+     "Speaker 2: Thank you.",
+     "Speaker 2: Hey. Ursula’s fiancée is really sweet! He’s a teacher, he does all this volunteer work. Y’know normally y’know, I don’t like really sweaty guys. But this one? I could just mop him up!",
+     "Speaker 3: Oh my God, Phoebe!",
+     "Speaker 2: What?",
+     "Speaker 3: You’re getting a crush on your sister’s fiancée.",
+     "Speaker 2: No I’m not! You are!",
+     "Speaker 4: Here comes the temper."
+    ],
+    [
+     {
+      "x": "Speaker 2",
+      "y": "Ursula",
+      "rid": [
+       16
+      ],
+      "r": [
+       "per:siblings"
+      ],
+      "t": [
+       "sister"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 2",
+      "y": "Speaker 1",
+      "rid": [
+       1
+      ],
+      "r": [
+       "per:positive_impression"
+      ],
+      "t": [
+       "sweet"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 2",
+      "y": "masseuse",
+      "rid": [
+       29
+      ],
+      "r": [
+       "per:title"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "STRING"
+     },
+     {
+      "x": "Ursula",
+      "y": "Speaker 2",
+      "rid": [
+       16
+      ],
+      "r": [
+       "per:siblings"
+      ],
+      "t": [
+       "sister"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Ursula",
+      "y": "Speaker 1",
+      "rid": [
+       10
+      ],
+      "r": [
+       "per:girl/boyfriend"
+      ],
+      "t": [
+       "fiancée"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 1",
+      "y": "Ursula",
+      "rid": [
+       10,
+       1
+      ],
+      "r": [
+       "per:girl/boyfriend",
+       "per:positive_impression"
+      ],
+      "t": [
+       "fiancée",
+       "most beautiful"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 1",
+      "y": "teacher",
+      "rid": [
+       29
+      ],
+      "r": [
+       "per:title"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "STRING"
+     }
+    ]
+   ],
+   [
+    [
+     "Speaker 1: Hey Ross! Check it out! I learned a new trick!",
+     "Speaker 2: Hey uh, I brought you some lunch.",
+     "Speaker 1: Ohh! That’s so sweet of you! Oh yum! Did you put pickles on this?",
+     "Speaker 2: Well yeah!",
+     "Speaker 1: Oh Ross!!",
+     "Speaker 2: What?! What?! Rach what?!",
+     "Speaker 3: What’s going on?",
+     "Speaker 2: I made her favorite, tuna salad with pickles.",
+     "Speaker 3: Pickle? Pickles make her sick. Giving her pickles is like giving me salad.",
+     "Speaker 2: I-I’m sorry Rach, I didn’t know. Are you gonna be okay?",
+     "Speaker 1: Yeah, I’ll be fine. But could someone please make sure that sandwich is gone when I get out there?",
+     "Speaker 3: I’m on it!",
+     "Speaker 2: I can’t believe this! I shouldn’t be the one making her throw up!",
+     "Speaker 3: Dude relax! It could happen to anyone.",
+     "Speaker 2: Yeah? Not to you, because you know this stuff. I don’t know any of it and I’m the father. I wish I’d be more involved y’know.",
+     "Speaker 1: Well, if anyone is keeping score, I no longer eat tuna.",
+     "Speaker 3: Hey uh, can I, can I talk to you guys for a second?",
+     "Speaker 2: Yeah.",
+     "Speaker 1: What’s up?",
+     "Speaker 3: Uh, sit down. I wanna talk about our situation.",
+     "Speaker 1: Are you breaking up with us?",
+     "Speaker 3: The thing is…’cause I live with Rachel I’m here for a lot of the stuff, okay? And Ross…Ross is missing everything. So…",
+     "Speaker 1: Yeah?",
+     "Speaker 3: Maybe you two should live together.",
+     "Speaker 1: Are you asking me to move out? Do you not want me here?",
+     "Speaker 3: Oh no-no, no-no I love living with you. It just seems that…if you’re gonna have a roommate, y’know it might as well be the father.",
+     "Speaker 1: But Joey, I don’t think Ross wants me to move into his apartment and disrupt his life like that. I mean——Or he does.",
+     "Speaker 2: No I-I-I would love to be around for you and the baby. And we-we can just try it like on a temporary basis.",
+     "Speaker 1: But Ross, its you and me!",
+     "Speaker 2: So? Sure! But it-it wouldn’t be anything romantic. And I’m-I’m dating Mona—Damnit Mona! I was supposed to meet her like an hour ago! What is wrong with me?!",
+     "Speaker 3: All right now, so? What do you think?",
+     "Speaker 1: I don’t know. Is it crazy?",
+     "Speaker 2: No! No it’s not. Joey, this is a smart idea.",
+     "Speaker 3: Well, I was due.",
+     "Speaker 1: Okay, let’s do it. I’ll move in.",
+     "Speaker 2: Really?",
+     "Speaker 1: Yeah.",
+     "Speaker 2: Oh Rach that’s great. That’s great."
+    ],
+    [
+     {
+      "x": "Speaker 1",
+      "y": "Rach",
+      "rid": [
+       30
+      ],
+      "r": [
+       "per:alternate_names"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 1",
+      "y": "Speaker 3",
+      "rid": [
+       12
+      ],
+      "r": [
+       "per:roommate"
+      ],
+      "t": [
+       "live with"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 1",
+      "y": "baby",
+      "rid": [
+       37
+      ],
+      "r": [
+       "unanswerable"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "STRING"
+     },
+     {
+      "x": "Speaker 1",
+      "y": "Dude",
+      "rid": [
+       37
+      ],
+      "r": [
+       "unanswerable"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "STRING"
+     },
+     {
+      "x": "Speaker 2",
+      "y": "dude",
+      "rid": [
+       30
+      ],
+      "r": [
+       "per:alternate_names"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "STRING"
+     },
+     {
+      "x": "Speaker 2",
+      "y": "Mona",
+      "rid": [
+       8
+      ],
+      "r": [
+       "per:dates"
+      ],
+      "t": [
+       "dating"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 2",
+      "y": "baby",
+      "rid": [
+       37
+      ],
+      "r": [
+       "unanswerable"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "STRING"
+     },
+     {
+      "x": "Speaker 3",
+      "y": "Speaker 1",
+      "rid": [
+       12
+      ],
+      "r": [
+       "per:roommate"
+      ],
+      "t": [
+       "live with"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 3",
+      "y": "Dude",
+      "rid": [
+       37
+      ],
+      "r": [
+       "unanswerable"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "STRING"
+     },
+     {
+      "x": "Speaker 3",
+      "y": "baby",
+      "rid": [
+       37
+      ],
+      "r": [
+       "unanswerable"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "STRING"
+     },
+     {
+      "x": "Mona",
+      "y": "Speaker 2",
+      "rid": [
+       8
+      ],
+      "r": [
+       "per:dates"
+      ],
+      "t": [
+       "dating"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     }
+    ]
+   ],
+   [
+    [
+     "Speaker 1: C'mon kid, let's go.",
+     "Speaker 2: Ahh, are you handsome.",
+     "Speaker 1: Let's show 'em.",
+     "Speaker 3: Uh, just a sec dad. OK, be cool, just be cool. OK dad.",
+     "Speaker 1: Rachel, ready or not, here comes your knight in shining. . . oh no.",
+     "Speaker 4, Speaker 5, Speaker 6, Speaker 7: Bye.",
+     "Speaker 2: Oh, dear. Jack, how do I turn this off?",
+     "Speaker 1: Press the button.",
+     "Speaker 2: Which one? Which button, Jack.",
+     "Speaker 1: The button, the button."
+    ],
+    [
+     {
+      "x": "Speaker 1",
+      "y": "Jack",
+      "rid": [
+       30
+      ],
+      "r": [
+       "per:alternate_names"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 1",
+      "y": "Speaker 3",
+      "rid": [
+       15
+      ],
+      "r": [
+       "per:parents"
+      ],
+      "t": [
+       "dad"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 3",
+      "y": "Speaker 1",
+      "rid": [
+       13
+      ],
+      "r": [
+       "per:children"
+      ],
+      "t": [
+       "dad"
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 3",
+      "y": "Jack",
+      "rid": [
+       37
+      ],
+      "r": [
+       "unanswerable"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "PER"
+     },
+     {
+      "x": "Speaker 4",
+      "y": "dear",
+      "rid": [
+       37
+      ],
+      "r": [
+       "unanswerable"
+      ],
+      "t": [
+       ""
+      ],
+      "x_type": "PER",
+      "y_type": "STRING"
+     }
+    ]
+   ]    
 ]

@@ -154,6 +154,8 @@ class SpeakerBertTokenizer(BertTokenizer):
      30
     ],
     "pheebs" is not a registered token or partial token in vocab.txt. it will tokenize to [UNK] (id=100).
+    NOTE: The benefits offered by BertTokenizer mean some parity with the data processing methods used by TUCORE-GCN is lost. In
+    particular, words with accents are converted to their vocab.txt representations
     """
 
     speaker2id = {
