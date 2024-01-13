@@ -76,7 +76,7 @@ class DataProcessor(object):
             return lines
 
 class bertsProcessor(DataProcessor): #bert_s
-    def __init__(self, src_file, n_class, for_f1c=False):
+    def __init__(self, src_file, n_class, for_f1c=False, modified_this_to_disable_shuffling=True):
         def is_speaker(a):
             a = a.split()
             return len(a) == 2 and a[0] == "speaker" and a[1].isdigit()
@@ -111,7 +111,7 @@ class bertsProcessor(DataProcessor): #bert_s
             else:
                 with open(src_file+["/train.json", "/dev.json", "/test.json"][sid], "r", encoding="utf8") as f:
                     data = json.load(f)
-            if sid == 0 and not for_f1c:
+            if sid == 0 and not for_f1c and not modified_this_to_disable_shuffling:
                 random.shuffle(data)
             for i in range(len(data)):
                 for j in range(len(data[i][1])):
@@ -545,7 +545,7 @@ class TUCOREGCNDataset(IterableDataset):
                 head_mention_id = max(f[0].mention_ids) - 1
                 tail_mention_id = max(f[0].mention_ids)
                 entity_edges_infor = self.make_entity_edges_infor(f[0].input_ids, f[0].mention_ids)
-                graph, used_mention = self.create_graph(speaker_infor, turn_node_num, entity_edges_infor, head_mention_id, tail_mention_id)
+                graph, used_mention, graph_data = self.create_graph(speaker_infor, turn_node_num, entity_edges_infor, head_mention_id, tail_mention_id)
                 assert len(used_mention) == (max(f[0].mention_ids) + 1)
 
                 self.data.append({
@@ -556,7 +556,10 @@ class TUCOREGCNDataset(IterableDataset):
                     'label_ids': np.array(f[0].label_id),
                     'mention_id': np.array(f[0].mention_ids),
                     'turn_mask': mention2mask(np.array(f[0].mention_ids)),
-                    'graph': graph
+                    'graph': graph,
+                    "graph_speaker": graph_data[('node', 'speaker', 'node')],
+                    "graph_dialog": graph_data[('node', 'dialog', 'node')],
+                    "graph_entity": graph_data[('node', 'entity', 'node')],
                     })
             # save data
             with open(file=save_file, mode='wb') as fw:
@@ -666,7 +669,7 @@ class TUCOREGCNDataset(IterableDataset):
 
         graph = dgl.heterograph(d)
 
-        return graph, used_mention
+        return graph, used_mention, d
 
 class TUCOREGCNDataset4f1c(IterableDataset):
 

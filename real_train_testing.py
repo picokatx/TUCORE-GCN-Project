@@ -258,7 +258,7 @@ def get_logits4eval_ERC(model, dataloader, savefile, resultsavefile, device, dat
                     f.write(" ")
 
 '''
-python run_classifier.py --do_train --do_eval --encoder_type BERT  --data_dir datasets/DialogRE --data_name DialogRE   --vocab_file ./pre-trained_model/BERT/vocab.txt   --config_file ./pre-trained_model/BERT/bert_config.json   --init_checkpoint ./pre-trained_model/BERT/pytorch_model.bin   --max_seq_length 512   --train_batch_size 12   --learning_rate 3e-5   --num_train_epochs 2 --output_dir old_training_loop_test3  --gradient_accumulation_steps 2
+python real_train_testing.py --do_train --do_eval --encoder_type BERT  --data_dir datasets/DialogRE --data_name DialogRE   --vocab_file ./pre-trained_model/BERT/vocab.txt   --config_file ./pre-trained_model/BERT/bert_config.json   --init_checkpoint ./pre-trained_model/BERT/pytorch_model.bin   --max_seq_length 512   --train_batch_size 12   --learning_rate 3e-5   --num_train_epochs 1 --output_dir parity_data_models  --gradient_accumulation_steps 2
 '''
 def main():
     parser = argparse.ArgumentParser()
@@ -355,7 +355,7 @@ def main():
                         help="local_rank for distributed training on gpus")
     parser.add_argument('--seed', 
                         type=int, 
-                        default=666,
+                        default=666, #666
                         help="random seed for initialization")
     parser.add_argument('--gradient_accumulation_steps',
                         type=int,
@@ -447,8 +447,8 @@ def main():
     train_set = None
     num_train_steps = None
     
-    tucore_data = datasets.load_from_disk("./datasets/DialogRE/data_final/")
-    train_set, test_set = tucore_data["train"], tucore_data["dev"]
+    tucore_data = datasets.load_from_disk("./datasets/DialogRE/parity_2/")
+    train_set, test_set = tucore_data["train"], tucore_data["validation"]
     num_train_steps = int(
             len(train_set) / args.train_batch_size / args.gradient_accumulation_steps * args.num_train_epochs)
     
@@ -513,6 +513,7 @@ def main():
             nb_tr_examples, nb_tr_steps = 0, 0
             
             for step in tqdm(range(0, train_n_batches), desc="Train Iteration"):
+                #should look into if sharding with inequal batch size is causing the accuracy to suck
                 shard = train_set.shard(num_shards=train_n_batches, index=step)
                 label_ids = torch.LongTensor(shard["label_ids"]).contiguous().to(device).float()
                 input_ids = torch.LongTensor(shard["input_ids"]).contiguous().to(device)
@@ -523,7 +524,8 @@ def main():
                 turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(device)
                 # forgot to flatten the list 1
                 graphs = [pickle.loads(g)[0].to(device) for g in shard["graph"]]
-
+                #print(shard["tokens"])
+                #print(graphs)
                 loss, _ = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_ids=mention_ids, labels=label_ids, turn_mask=turn_mask)
                 if n_gpu > 1:
                     loss = loss.mean()

@@ -457,9 +457,9 @@ def create_graph(
         graph_data, entity_turn_relations, entity_1_mention_id, entity_2_mention_id
     )
     graph = dgl.heterograph(graph_data)
-    return graph
+    return graph_data, graph
 
-def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length, return_labels=False):
+def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length, return_labels=False, return_graph_data=False):
     tokens = create_tokens(sequence, entity_1, entity_2)
     input_ids = create_input_ids(tokens, speaker_tokenizer)
     input_mask = create_input_mask(sequence, entity_1, entity_2)
@@ -493,7 +493,7 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
     entity_2_mention_id = max(mention_ids)
     entity_1_ids = speaker_tokenizer.convert_tokens_to_ids(entity_1)
     entity_2_ids = speaker_tokenizer.convert_tokens_to_ids(entity_2)
-    graph = create_graph(
+    graph_data, graph = create_graph(
         input_ids,
         speaker_ids,
         mention_ids,
@@ -507,17 +507,31 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
     # The reason this works is that max(mention_ids) returns the id of entity 2. hence,
     # assert len(used_mention) == (max(mention_ids) + 1)
     if return_labels:
-        return (
-                [tokens],
-                np.array([label_id]),
-                np.array([input_ids]),
-                np.array([input_mask]),
-                np.array([segment_ids]),
-                np.array([speaker_ids]),
-                np.array([mention_ids]),
-                np.array([turn_masks]),
-                [graph],
-            )
+        if return_graph_data:
+            return (
+                    [tokens],
+                    np.array([label_id]),
+                    np.array([input_ids]),
+                    np.array([input_mask]),
+                    np.array([segment_ids]),
+                    np.array([speaker_ids]),
+                    np.array([mention_ids]),
+                    np.array([turn_masks]),
+                    [graph],
+                    [graph_data]
+                )
+        else:
+            return (
+                    [tokens],
+                    np.array([label_id]),
+                    np.array([input_ids]),
+                    np.array([input_mask]),
+                    np.array([segment_ids]),
+                    np.array([speaker_ids]),
+                    np.array([mention_ids]),
+                    np.array([turn_masks]),
+                    [graph],
+                )
     else:
         return (
                 [tokens],

@@ -869,6 +869,10 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
                         datasets.Sequence(datasets.Value("bool"))
                     ),
                     "graph": datasets.Value("binary"),
+                    "graph_data": datasets.Value("binary"),
+                    #"graph_speaker": {'origin': datasets.Value(dtype='int32'), 'target': datasets.Value("int32")},
+                    #"graph_dialog": {'origin': datasets.Value(dtype='int32'), 'target': datasets.Value("int32")},
+                    #"graph_entity": {'origin': datasets.Value(dtype='int32'), 'target': datasets.Value("int32")},
                 }
             ),
             supervised_keys=None,
@@ -914,7 +918,7 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
         )
 
     def _generate_examples(
-        self, filepath, split, max_seq_length=512, for_f1c=False, old_behaviour=False, shuffle_train=True
+        self, filepath, split, max_seq_length=512, for_f1c=False, old_behaviour=True, shuffle_train=True
     ):
         r"""Yields examples."""
         speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
@@ -959,6 +963,7 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
                             mention_ids,
                             turn_masks,
                             graph,
+                            graph_data,
                         ) = create_model_inputs(
                             speaker_tokenizer.tokenize(entry["dialog"]),
                             speaker_tokenizer.tokenize(entry["relation"]["entity_1"]),
@@ -968,6 +973,7 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
                             old_behaviour,
                             36,
                             max_seq_length,
+                            True,
                             True,
                         )
                         yield idx, {
@@ -980,6 +986,10 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
                             "mention_ids": mention_ids[0],
                             "turn_masks": turn_masks[0],
                             "graph": pickle.dumps(graph),
+                            "graph_data": pickle.dumps(graph_data),
+                        #    "graph_speaker": graph_data[0][('node', 'speaker', 'node')],
+                        #    "graph_dialog": graph_data[0][('node', 'dialog', 'node')],
+                        #    "graph_entity": graph_data[0][('node', 'entity', 'node')],
                         }
 
 

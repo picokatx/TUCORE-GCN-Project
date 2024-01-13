@@ -1,5 +1,8 @@
 *.pt
 *.pkl
+*.pklb
+*.pkls
+*.pklv
 *.bak
 *.arrow
 *logits_dev.txt

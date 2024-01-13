@@ -4,6 +4,7 @@ from tucore_gcn_transformers.tucore_gcn_bert_train import TUCOREGCNDialogREDatas
 from models.BERT.tokenization import FullTokenizer
 from tqdm import tqdm
 import numpy as np
+import datasets
 
 def input_parity(entry_idx=None, split='dev', do_turn_mask_testing=False):
 	tokenizer = FullTokenizer(vocab_file="../pre-trained_model/BERT/vocab.txt", do_lower_case=True)
@@ -13,10 +14,10 @@ def input_parity(entry_idx=None, split='dev', do_turn_mask_testing=False):
 	new_dataset = TUCOREGCNDialogREDataset()
 	new_data_generator = new_dataset._generate_examples(f'../datasets/DialogRE/{split}.json', split, 512, False, True, False)
 	new_data = [data[1] for data in new_data_generator]
+	#new_data = datasets.load_from_disk("../datasets/DialogRE/parity")[split if split!='dev' else "validation"]
 	for idx in tqdm(range(0 if entry_idx==None else entry_idx, len(old_data) if entry_idx==None else entry_idx+1)):
 		out = []
-		cmp_all = list(new_data[idx].keys())[1:-2] # graphs excluded, turn mask checked separately
-
+		cmp_all = ['label_ids', 'input_ids', 'input_mask', 'segment_ids', 'speaker_ids', 'mention_ids'] # graphs excluded, turn mask checked separately
 		for cmp in cmp_all:
 			out.append(f"------------|{cmp}|------------")
 			a = "".join([chr(code) for code in (old_data[idx][cmp if not (cmp=="mention_ids" or cmp=="turn_masks") else ("mention_id" if cmp=="mention_ids" else "turn_mask")])])
@@ -26,8 +27,8 @@ def input_parity(entry_idx=None, split='dev', do_turn_mask_testing=False):
 				if s[0]==' ': continue
 				elif s[0]=='-' or s[0]=='+':
 					print(idx, cmp)
-					print(a)
-					print(b)
+					#print(old_data[idx][cmp if not (cmp=="mention_ids" or cmp=="turn_masks") else ("mention_id" if cmp=="mention_ids" else "turn_mask")])
+					#print(new_data[idx][cmp])
 					if entry_idx!=None:
 						print(u'Delete "{}" from position {}'.format(ord(s[-1]),i))
 						print(u'Add "{}" to position {}'.format(ord(s[-1]),i))
@@ -40,8 +41,18 @@ def input_parity(entry_idx=None, split='dev', do_turn_mask_testing=False):
 				elif s[0]=='+':
 					out.append(u'Add "{}" to position {}'.format(ord(s[-1]),i))
 			'''
+		'''
+		graph_checks = ['graph_speaker', 'graph_dialog', 'graph_entity']
+		for check in graph_checks:
+			g_a = np.array(old_data[idx][check])
+			g_b = np.array(new_data[idx][check])
+			if (g_a.shape!=g_b.shape) or len(np.unique(g_a==g_b))!=1:
+				print(idx, check)
+				#print(g_a)
+				#print(g_b)
 		if do_turn_mask_testing and len(np.unique((old_data[idx]["turn_mask"] == new_data[idx]["turn_masks"])))!=1:
-			print(idx)
+			print(idx, "turn_masks")
+		'''
 		'''	
 		with open(f"data_diff{idx}.txt", 'w') as file:
 			file.write("\n".join(out))
