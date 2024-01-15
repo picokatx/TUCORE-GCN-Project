@@ -9836,3 +9836,11 @@ Test Iteration: 100%|███████████████████�
 01/14/2024 01:27:38 - INFO - __main__ -     loss = 0.037244004224920205
 Epoch: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [3:44:03<00:00, 13443.92s/it]
 (.venv) PS D:\projects\affect\TUCORE-GCN> 
+
+ we reimplement TUCORE-GCN using the widely used HuggingFace transformers library. 
+ We additionally redesign the data processing pipeline to function as an input processor for inference. 
+ We also propose a test suite in the transformers library style. 
+ We document all functionality in the transformers library docstring formatting style, increasing ease of understanding for developers. 
+ we will produce a technical report on our implementation of TUCORE-GCN, covering any parity concerns and detailing how the work was achieved for future studies. 
+ We will additionally train TUCORE-GCN on models besides BERT and RoBERTa, and provide training details similarly to the TUCORE-GCN paper’s ablation studies. We will additionally publish code to generate such training details. 
+ Taking into light recent developments in research, we extend our implementation of TUCORE-GCN to Hi-Dialog, a derivative of TUCORE-GCN that replaces turn self-attention with hierarchical turn-based attention, among other improvements.

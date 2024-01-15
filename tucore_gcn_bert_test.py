@@ -6,6 +6,16 @@ from tqdm import tqdm
 import numpy as np
 import datasets
 
+class ANY:
+    def __init__(self, *_types):
+        self._types = _types
+
+    def __eq__(self, other):
+        return isinstance(other, self._types)
+
+    def __repr__(self):
+        return f"ANY({', '.join(_type.__name__ for _type in self._types)})"
+
 def input_parity(entry_idx=None, split='dev', do_turn_mask_testing=False):
 	tokenizer = FullTokenizer(vocab_file="../pre-trained_model/BERT/vocab.txt", do_lower_case=True)
 	old_dataset = TUCOREGCNDataset("../datasets/DialogRE/", f"../datasets/DialogRE/{split}_BERT.pkl", 512, tokenizer, 36, "BERT")
