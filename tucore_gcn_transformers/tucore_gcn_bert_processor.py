@@ -378,7 +378,7 @@ class Conversation:
         speaker_y_tokens = tokenizer.tokenize(relation.entity_2)
         for line in dialog:
             line_len = len(tokenizer.tokenize(line))
-            if (
+            '''if (
                 count + line_len + len(speaker_x_tokens) + len(speaker_y_tokens) + 4
                 > max_seq_length
             ):
@@ -399,12 +399,11 @@ class Conversation:
                     lim_dialog.append(" ".join(line_temp))
                 break
                 # try out removing entries>sequence length
-                '''
-                return {
-                    "dialog": "",
-                    "relation": {"entity_1": relation.entity_1, "entity_2": relation.entity_2, "rid": relation.rid},
-                }
-                '''
+                #return {
+                #    "dialog": "",
+                #    "relation": {"entity_1": relation.entity_1, "entity_2": relation.entity_2, "rid": relation.rid},
+                #}
+            '''
             count += line_len
             lim_dialog.append(line)
         return {

@@ -80,7 +80,7 @@ def create_input_ids(tokens, speaker_tokenizer) -> List[int]:
     return speaker_tokenizer.convert_tokens_to_ids(tokens)
 
 
-def create_input_mask(sequence, entity_1, entity_2):
+def create_input_mask(sequence: List[str], entity_1: List[str], entity_2: List[str]):
     return (
         [1]
         + [1] * len(sequence)
@@ -92,7 +92,7 @@ def create_input_mask(sequence, entity_1, entity_2):
     )
 
 
-def create_segment_ids(sequence, entity_1, entity_2):
+def create_segment_ids(sequence: List[str], entity_1: List[str], entity_2: List[str]):
     return (
         [0]
         + [0] * len(sequence)
@@ -133,15 +133,17 @@ def create_speaker_ids(
                 current_speaker_id = int(arg1)
                 speakers.append(token)
             input_speaker_ids.append(current_speaker_id)
+        input_speaker_ids.append(current_speaker_id)
+        input_speaker_ids.append(current_speaker_id)
         # [SEP] check is there as truncated speaker tokens are considered a change in speaker in the original code
-        if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]):
+        '''if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]):
             current_speaker_id = speaker_tokenizer.convert_speaker_to_id(sequence[len(sequence)-2])
         elif (sequence[len(sequence)-2]=='speaker' and sequence[len(sequence)-1].isnumeric()):
             current_speaker_id = int(sequence[len(sequence)-1])
         input_speaker_ids.append(current_speaker_id)
         if speaker_tokenizer.is_speaker(sequence[len(sequence)-1]):
             current_speaker_id = speaker_tokenizer.convert_speaker_to_id(sequence[len(sequence)-1])
-        input_speaker_ids.append(current_speaker_id)
+        input_speaker_ids.append(current_speaker_id)'''
     else:
         for i in range(len(sequence)-1):
             token=sequence[i]
@@ -197,12 +199,14 @@ def create_mention_ids(sequence, entity_1, entity_2, speaker_tokenizer, old_beha
             elif token=='speaker' and arg1.isnumeric() and (arg2==":" or arg2==","):
                 current_speaker_idx += 1
             input_mention_ids.append(current_speaker_idx)
-        if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]) or (sequence[len(sequence)-2]=='speaker' and sequence[len(sequence)-1].isnumeric()):
+        input_mention_ids.append(current_speaker_idx)
+        input_mention_ids.append(current_speaker_idx)
+        '''if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]) or (sequence[len(sequence)-2]=='speaker' and sequence[len(sequence)-1].isnumeric()):
             current_speaker_idx += 1
         input_mention_ids.append(current_speaker_idx)
         if speaker_tokenizer.is_speaker(sequence[len(sequence)-1]):
             current_speaker_idx += 1
-        input_mention_ids.append(current_speaker_idx)
+        input_mention_ids.append(current_speaker_idx)'''
     else:
         for i in range(len(sequence)-1):
             token=sequence[i]
@@ -293,7 +297,19 @@ def pad_inputs(
     speaker_ids,
     mention_ids,
     max_seq_length,
+    sequence,
+    entity_1,
+    entity_2,
 ):
+    while len(input_ids) > max_seq_length:
+        pop_loc = len(sequence)
+        tokens.pop(pop_loc)
+        input_ids.pop(pop_loc)
+        input_mask.pop(pop_loc)
+        segment_ids.pop(pop_loc)
+        speaker_ids.pop(pop_loc)
+        mention_ids.pop(pop_loc)
+        sequence.pop()
     while len(input_ids) < max_seq_length:
         tokens.append("[PAD]")
         input_ids.append(0)
@@ -301,6 +317,11 @@ def pad_inputs(
         segment_ids.append(0)
         speaker_ids.append(0)
         mention_ids.append(0)
+    last_mid = mention_ids[len(sequence)]
+    for i in range(len(entity_1)):
+        mention_ids[len(sequence)+2+i] = last_mid+1
+    for i in range(len(entity_2)):
+        mention_ids[len(sequence)+1+len(entity_1)+2+i] = last_mid+2
 
 
 def build_speaker_turn_relations(speaker_id: List[int], mention_id: List[int]):
@@ -477,6 +498,7 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
         sequence, entity_1, entity_2, speaker_tokenizer, old_behaviour
     )
     label_id = create_label_id(inputs["relation"]['rid'], n_class)
+
     pad_inputs(
         tokens,
         input_ids,
@@ -485,6 +507,9 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
         speaker_ids,
         mention_ids,
         max_seq_length,
+        sequence,
+        entity_1,
+        entity_2,
     )
     turn_masks = create_turn_mask(np.array(mention_ids), old_behaviour)
 
