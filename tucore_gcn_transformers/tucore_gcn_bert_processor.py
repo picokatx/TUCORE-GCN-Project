@@ -285,7 +285,7 @@ class Conversation:
         return len(s) == 2 and s[0] == "Speaker" and s[1].isdigit()
 
     def build_input_with_relation(
-        self, relation, tokenizer, max_seq_length=512, for_f1c=False, old_behaviour=False
+        self, relation, tokenizer, max_seq_length=512, old_behaviour=False
     ):
         r"""Builds TUCORE-GCN compatible inputs
 
@@ -545,12 +545,12 @@ class DialogRE(datasets.GeneratorBasedBuilder):
             **prepare_splits_kwargs,
         )
 
-    def _generate_examples(self, filepath, split, max_seq_length=512, for_f1c=False, old_behaviour=False):
+    def _generate_examples(self, filepath, split, max_seq_length=512, old_behaviour=False):
         r"""Yields examples."""
         speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
         with open(filepath, encoding="utf-8") as f:
             dataset = json.load(f)
-            if split == "train" and not for_f1c:
+            if split == "train":
                 random.shuffle(dataset)
             for idx, entry in enumerate(dataset):
                 dialog_raw = entry[0]
@@ -566,7 +566,7 @@ class DialogRE(datasets.GeneratorBasedBuilder):
                     if idx == -1:
                         break
                     ret_dialog, ret_relation = c.build_input_with_relation(
-                        relation, speaker_tokenizer, max_seq_length, for_f1c, old_behaviour
+                        relation, speaker_tokenizer, max_seq_length, old_behaviour
                     ).values()
                     if ret_dialog != "":
                         yield idx, {

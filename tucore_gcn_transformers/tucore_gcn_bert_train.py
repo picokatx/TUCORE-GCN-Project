@@ -870,9 +870,6 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
                     ),
                     "graph": datasets.Value("binary"),
                     "graph_data": datasets.Value("binary"),
-                    #"graph_speaker": {'origin': datasets.Value(dtype='int32'), 'target': datasets.Value("int32")},
-                    #"graph_dialog": {'origin': datasets.Value(dtype='int32'), 'target': datasets.Value("int32")},
-                    #"graph_entity": {'origin': datasets.Value(dtype='int32'), 'target': datasets.Value("int32")},
                 }
             ),
             supervised_keys=None,
@@ -918,13 +915,15 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
         )
 
     def _generate_examples(
-        self, filepath, split, max_seq_length=512, for_f1c=False, old_behaviour=True, shuffle_train=True
+        self, filepath, split, max_seq_length=512, old_behaviour=True, shuffle_train=True
     ):
         r"""Yields examples."""
-        speaker_tokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
+        speaker_tokenizer: SpeakerBertTokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
+        # train has accents, while test and dev is already normalized.
+        speaker_tokenizer.basic_tokenizer.strip_accents = split == "train"
         with open(filepath, encoding="utf-8") as f:
             dataset = json.load(f)
-            if split == "train" and not for_f1c and shuffle_train:
+            if split == "train" and shuffle_train:
                 random.shuffle(dataset)
             for tqdm_idx, entry in tqdm_notebook(
                 enumerate(dataset), total=len(dataset)
@@ -945,7 +944,6 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
                         relation,
                         speaker_tokenizer,
                         max_seq_length,
-                        for_f1c,
                         old_behaviour,
                     ).values()
                     if ret_dialog != "":

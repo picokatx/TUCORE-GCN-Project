@@ -15,3 +15,5 @@ torch_cluster -f https://data.pyg.org/whl/torch-2.0.0+cu118.html
 torch_spline_conv -f https://data.pyg.org/whl/torch-2.0.0+cu118.html
 transformers
 datasets
+pytest
+parameterized
