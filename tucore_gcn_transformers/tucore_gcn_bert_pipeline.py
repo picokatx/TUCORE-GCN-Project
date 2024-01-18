@@ -83,10 +83,10 @@ class GenericSpecialTokenRepo(object):
         self.sep = sep
         self.trailing_sep = trailing_sep
     
-@dataclass
-class XEmbedding(object):
-    bert: GenericSpecialTokenRepo = GenericSpecialTokenRepo(['[CLS]'], ['[PAD]'], ['[UNK]'], ['[MASK]'], ['[SEP]'], ['[SEP]'])
-    roberta: GenericSpecialTokenRepo = GenericSpecialTokenRepo(['<s>'], ['<pad>'], ['<unk>'], ['<mask>'], ['</s>', '</s>'], ['</s>'])
+xembedding = {
+    "bert" : GenericSpecialTokenRepo(['[CLS]'], ['[PAD]'], ['[UNK]'], ['[MASK]'], ['[SEP]'], ['[SEP]']),
+    "roberta": GenericSpecialTokenRepo(['<s>'], ['<pad>'], ['<unk>'], ['<mask>'], ['</s>', '</s>'], ['</s>'])
+}
 
 def create_inputs(conversation: Conversation, speaker_tokenizer: SpeakerBertTokenizer):
     inputs = conversation.build_inputs(speaker_tokenizer)[0]
@@ -96,9 +96,9 @@ def create_inputs(conversation: Conversation, speaker_tokenizer: SpeakerBertToke
     return inputs, sequence, entity_1, entity_2
 
 
-def create_tokens(sequence, entity_1, entity_2):
+def create_tokens(sequence, entity_1, entity_2, model_type):
     return (
-        XEmbedding.bert.cls + sequence + XEmbedding.bert.sep + entity_1 + XEmbedding.bert.sep + entity_2 + XEmbedding.bert.trailing_sep
+        xembedding[model_type].cls + sequence + xembedding[model_type].sep + entity_1 + xembedding[model_type].sep + entity_2 + xembedding[model_type].trailing_sep
     )
 
 
@@ -327,6 +327,7 @@ def pad_inputs(
     sequence,
     entity_1,
     entity_2,
+    model_type,
 ):
     while len(input_ids) > max_seq_length:
         pop_loc = len(sequence)
@@ -338,8 +339,8 @@ def pad_inputs(
         mention_ids.pop(pop_loc)
         sequence.pop()
     while len(input_ids) < max_seq_length:
-        tokens.append(XEmbedding.bert.pad)
-        input_ids.append(speaker_tokenizer._convert_token_to_id(XEmbedding.bert.pad))
+        tokens.append(xembedding[model_type].pad)
+        input_ids.append(speaker_tokenizer._convert_token_to_id(xembedding[model_type].pad[0]))
         input_mask.append(0)
         segment_ids.append(0)
         speaker_ids.append(0)
@@ -507,8 +508,8 @@ def create_graph(
     graph = dgl.heterograph(graph_data)
     return graph_data, graph
 
-def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length, return_labels=False, return_graph_data=False):
-    tokens = create_tokens(sequence, entity_1, entity_2)
+def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length, return_labels=False, return_graph_data=False, model_type='bert'):
+    tokens = create_tokens(sequence, entity_1, entity_2, model_type)
     input_ids = create_input_ids(tokens, speaker_tokenizer)
     input_mask = create_input_mask(sequence, entity_1, entity_2)
     segment_ids = create_segment_ids(sequence, entity_1, entity_2)
@@ -538,6 +539,7 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
         sequence,
         entity_1,
         entity_2,
+        model_type
     )
     turn_masks = create_turn_mask(np.array(mention_ids), old_behaviour)
 
@@ -636,15 +638,17 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
             preprocess_kwargs["n_class"] = kwargs["n_class"]
         if "max_seq_length" in kwargs:
             preprocess_kwargs["max_seq_length"] = kwargs["max_seq_length"]
+        if "model_type" in kwargs:
+            preprocess_kwargs["model_type"] = kwargs["model_type"]
         return preprocess_kwargs, {}, {}
 
-    def preprocess(self, conversation: Conversation, n_class:int, max_seq_length:int):
+    def preprocess(self, conversation: Conversation, n_class:int, max_seq_length:int, model_type:str):
         speaker_tokenizer = self.tokenizer
         old_behaviour = True
         inputs, sequence, entity_1, entity_2 = create_inputs(
             conversation, speaker_tokenizer
         )
-        return create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length)
+        return create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length, model_type=model_type)
 
     def _forward(self, model_inputs):  # model_inputs == {"model_input": model_input}
         (

@@ -41,8 +41,8 @@ class ANY:
 
 class TUCOREGCNBertTokenizerTest(unittest.TestCase):
     speaker_tokenizer: SpeakerBertTokenizer = SpeakerBertTokenizer.from_pretrained(
-		"bert-base-uncased"
-	)
+        "bert-base-uncased"
+    )
     @parameterized.expand(
         [
             ("{entity_1}:", ["{", "entity", "_", "1", "}", ":"]), # tokenization breaks if colon isn't pre_padded
@@ -130,7 +130,7 @@ def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False):
     old_data = old_loader.dataset.data
     new_dataset = TUCOREGCNDialogREDataset()
     new_data_generator = new_dataset._generate_examples(
-        f"../datasets/DialogRE/{split}.json", split, 512, False, True, False
+        f"../datasets/DialogRE/{split}.json", split, 512, True, False
     )
     new_data = [data[1] for data in new_data_generator]
     # new_data = datasets.load_from_disk("../datasets/DialogRE/parity")[split if split!='dev' else "validation"]
@@ -177,26 +177,26 @@ def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False):
                         print('Add "{}" to position {}'.format(ord(s[-1]), i))
                     break
             """
-			for i,s in enumerate(ndiff(b,a)):
-				if s[0]==' ': continue
-				elif s[0]=='-':
-					out.append(u'Delete "{}" from position {}'.format(ord(s[-1]),i))
-				elif s[0]=='+':
-					out.append(u'Add "{}" to position {}'.format(ord(s[-1]),i))
-			"""
+            for i,s in enumerate(ndiff(b,a)):
+                if s[0]==' ': continue
+                elif s[0]=='-':
+                    out.append(u'Delete "{}" from position {}'.format(ord(s[-1]),i))
+                elif s[0]=='+':
+                    out.append(u'Add "{}" to position {}'.format(ord(s[-1]),i))
+            """
+        if do_turn_mask_testing and len(np.unique((old_data[idx]["turn_mask"] == new_data[idx]["turn_masks"])))!=1:
+            print(idx, "turn_masks")
         """
-		graph_checks = ['graph_speaker', 'graph_dialog', 'graph_entity']
-		for check in graph_checks:
-			g_a = np.array(old_data[idx][check])
-			g_b = np.array(new_data[idx][check])
-			if (g_a.shape!=g_b.shape) or len(np.unique(g_a==g_b))!=1:
-				print(idx, check)
-				#print(g_a)
-				#print(g_b)
-		if do_turn_mask_testing and len(np.unique((old_data[idx]["turn_mask"] == new_data[idx]["turn_masks"])))!=1:
-			print(idx, "turn_masks")
-		"""
-        """	
-		with open(f"data_diff{idx}.txt", 'w') as file:
-			file.write("\n".join(out))
-		"""
+        graph_checks = ['graph_speaker', 'graph_dialog', 'graph_entity']
+        for check in graph_checks:
+            g_a = np.array(old_data[idx][check])
+            g_b = np.array(new_data[idx][check])
+            if (g_a.shape!=g_b.shape) or len(np.unique(g_a==g_b))!=1:
+                print(idx, check)
+                #print(g_a)
+                #print(g_b)
+        """
+        """    
+        with open(f"data_diff{idx}.txt", 'w') as file:
+            file.write("\n".join(out))
+        """

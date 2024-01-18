@@ -915,7 +915,7 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
         )
 
     def _generate_examples(
-        self, filepath, split, max_seq_length=512, old_behaviour=True, shuffle_train=True
+        self, filepath, split, max_seq_length=512, old_behaviour=True, shuffle_train=True, model_type='bert'
     ):
         r"""Yields examples."""
         speaker_tokenizer: SpeakerBertTokenizer = SpeakerBertTokenizer.from_pretrained("bert-base-uncased")
@@ -973,6 +973,7 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
                             max_seq_length,
                             True,
                             True,
+                            model_type = model_type,
                         )
                         yield idx, {
                             "tokens": tokens[0],
