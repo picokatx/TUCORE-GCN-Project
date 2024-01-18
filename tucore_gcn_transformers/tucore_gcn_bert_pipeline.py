@@ -60,7 +60,33 @@ from itertools import permutations
 import dgl
 import torch.nn.functional as F
 from torch import LongTensor
+from dataclasses import dataclass
 
+class GenericSpecialTokenRepo(object):
+    cls: List[str]
+    pad: List[str]
+    unk: List[str]
+    mask: List[str]
+    sep: List[str]
+    trailing_sep: List[str]
+    # <s> - [CLS]
+    # <pad> - [PAD]
+    # <unk> - [UNK]
+    # <mask> - [MASK]
+    # </s></s> - [SEP] 
+    # </s> - trailing [SEP]
+    def __init__(self, cls: List[str], pad: List[str], unk: List[str], mask: List[str], sep: List[str], trailing_sep: List[str]) -> None:
+        self.cls = cls
+        self.pad = pad
+        self.unk = unk
+        self.mask = mask
+        self.sep = sep
+        self.trailing_sep = trailing_sep
+    
+@dataclass
+class XEmbedding(object):
+    bert: GenericSpecialTokenRepo = GenericSpecialTokenRepo(['[CLS]'], ['[PAD]'], ['[UNK]'], ['[MASK]'], ['[SEP]'], ['[SEP]'])
+    roberta: GenericSpecialTokenRepo = GenericSpecialTokenRepo(['<s>'], ['<pad>'], ['<unk>'], ['<mask>'], ['</s>', '</s>'], ['</s>'])
 
 def create_inputs(conversation: Conversation, speaker_tokenizer: SpeakerBertTokenizer):
     inputs = conversation.build_inputs(speaker_tokenizer)[0]
@@ -72,7 +98,7 @@ def create_inputs(conversation: Conversation, speaker_tokenizer: SpeakerBertToke
 
 def create_tokens(sequence, entity_1, entity_2):
     return (
-        ["[CLS]"] + sequence + ["[SEP]"] + entity_1 + ["[SEP]"] + entity_2 + ["[SEP]"]
+        XEmbedding.bert.cls + sequence + XEmbedding.bert.sep + entity_1 + XEmbedding.bert.sep + entity_2 + XEmbedding.bert.trailing_sep
     )
 
 
@@ -296,6 +322,7 @@ def pad_inputs(
     segment_ids,
     speaker_ids,
     mention_ids,
+    speaker_tokenizer,
     max_seq_length,
     sequence,
     entity_1,
@@ -311,8 +338,8 @@ def pad_inputs(
         mention_ids.pop(pop_loc)
         sequence.pop()
     while len(input_ids) < max_seq_length:
-        tokens.append("[PAD]")
-        input_ids.append(0)
+        tokens.append(XEmbedding.bert.pad)
+        input_ids.append(speaker_tokenizer._convert_token_to_id(XEmbedding.bert.pad))
         input_mask.append(0)
         segment_ids.append(0)
         speaker_ids.append(0)
@@ -506,6 +533,7 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
         segment_ids,
         speaker_ids,
         mention_ids,
+        speaker_tokenizer,
         max_seq_length,
         sequence,
         entity_1,

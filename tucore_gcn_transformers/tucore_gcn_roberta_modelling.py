@@ -1567,7 +1567,7 @@ class TUCOREGCN_Roberta(TUCOREGCN_RobertaPreTrainedModel):
 
 
 # Partially copied from BertForSequenceClassification
-class TUCOREGCN_BertForSequenceClassification(RobertaPreTrainedModel):
+class TUCOREGCN_RobertaForSequenceClassification(RobertaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels

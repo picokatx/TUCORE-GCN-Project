@@ -17,3 +17,4 @@ transformers
 datasets
 pytest
 parameterized
+fairseq -f git+https://github.com/VarunGumma/fairseq.git

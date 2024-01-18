@@ -1,4 +1,6 @@
 *.pt
+*.pth
+*.safetensors
 *.pkl
 *.pklb
 *.pkls

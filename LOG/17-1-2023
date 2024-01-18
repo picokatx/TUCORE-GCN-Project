@@ -1,0 +1,9 @@
+Developing 2 branches of TUCORE-GCN
+1. Parity Branch: 1-1 code implementations
+2. Opinionated Branch: Seeks to improve infrastructure of the original work, while maintaining parity to a reasonable degree
+Current codebase is a mesh between the 2
+
+Rigorous testing of code needed
+
+Roberta Implementation should have seperate tokenizer+datasetgenerator for now
+
