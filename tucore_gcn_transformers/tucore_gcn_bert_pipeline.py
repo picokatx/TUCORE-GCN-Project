@@ -62,6 +62,7 @@ import torch.nn.functional as F
 from torch import LongTensor
 from dataclasses import dataclass
 
+
 class GenericSpecialTokenRepo(object):
     cls: List[str]
     pad: List[str]
@@ -69,36 +70,57 @@ class GenericSpecialTokenRepo(object):
     mask: List[str]
     sep: List[str]
     trailing_sep: List[str]
+
     # <s> - [CLS]
     # <pad> - [PAD]
     # <unk> - [UNK]
     # <mask> - [MASK]
-    # </s></s> - [SEP] 
+    # </s></s> - [SEP]
     # </s> - trailing [SEP]
-    def __init__(self, cls: List[str], pad: List[str], unk: List[str], mask: List[str], sep: List[str], trailing_sep: List[str]) -> None:
+    def __init__(
+        self,
+        cls: List[str],
+        pad: List[str],
+        unk: List[str],
+        mask: List[str],
+        sep: List[str],
+        trailing_sep: List[str],
+    ) -> None:
         self.cls = cls
         self.pad = pad
         self.unk = unk
         self.mask = mask
         self.sep = sep
         self.trailing_sep = trailing_sep
-    
+
+
 xembedding = {
-    "bert" : GenericSpecialTokenRepo(['[CLS]'], ['[PAD]'], ['[UNK]'], ['[MASK]'], ['[SEP]'], ['[SEP]']),
-    "roberta": GenericSpecialTokenRepo(['<s>'], ['<pad>'], ['<unk>'], ['<mask>'], ['</s>', '</s>'], ['</s>'])
+    "bert": GenericSpecialTokenRepo(
+        ["[CLS]"], ["[PAD]"], ["[UNK]"], ["[MASK]"], ["[SEP]"], ["[SEP]"]
+    ),
+    "roberta": GenericSpecialTokenRepo(
+        ["<s>"], ["<pad>"], ["<unk>"], ["<mask>"], ["</s>", "</s>"], ["</s>"]
+    ),
 }
+
 
 def create_inputs(conversation: Conversation, speaker_tokenizer: SpeakerBertTokenizer):
     inputs = conversation.build_inputs(speaker_tokenizer)[0]
     sequence = speaker_tokenizer.tokenize(inputs["dialog"])
-    entity_1 = speaker_tokenizer.tokenize(inputs["relation"]['entity_1'])
-    entity_2 = speaker_tokenizer.tokenize(inputs["relation"]['entity_2'])
+    entity_1 = speaker_tokenizer.tokenize(inputs["relation"]["entity_1"])
+    entity_2 = speaker_tokenizer.tokenize(inputs["relation"]["entity_2"])
     return inputs, sequence, entity_1, entity_2
 
 
 def create_tokens(sequence, entity_1, entity_2, model_type):
     return (
-        xembedding[model_type].cls + sequence + xembedding[model_type].sep + entity_1 + xembedding[model_type].sep + entity_2 + xembedding[model_type].trailing_sep
+        xembedding[model_type].cls
+        + sequence
+        + xembedding[model_type].sep
+        + entity_1
+        + xembedding[model_type].sep
+        + entity_2
+        + xembedding[model_type].trailing_sep
     )
 
 
@@ -106,27 +128,31 @@ def create_input_ids(tokens, speaker_tokenizer) -> List[int]:
     return speaker_tokenizer.convert_tokens_to_ids(tokens)
 
 
-def create_input_mask(sequence: List[str], entity_1: List[str], entity_2: List[str]):
+def create_input_mask(
+    sequence: List[str], entity_1: List[str], entity_2: List[str], model_type: str
+):
     return (
-        [1]
+        [1] * len(xembedding[model_type].cls)
         + [1] * len(sequence)
-        + [1]
+        + [1] * len(xembedding[model_type].sep)
         + [1] * len(entity_1)
-        + [1]
+        + [1] * len(xembedding[model_type].sep)
         + [1] * len(entity_2)
-        + [1]
+        + [1] * len(xembedding[model_type].trailing_sep)
     )
 
 
-def create_segment_ids(sequence: List[str], entity_1: List[str], entity_2: List[str]):
+def create_segment_ids(
+    sequence: List[str], entity_1: List[str], entity_2: List[str], model_type: str
+):
     return (
-        [0]
+        [0] * len(xembedding[model_type].cls)
         + [0] * len(sequence)
-        + [0]
+        + [0] * len(xembedding[model_type].sep)
         + [1] * len(entity_1)
-        + [1]
+        + [1] * len(xembedding[model_type].sep)
         + [1] * len(entity_2)
-        + [1]
+        + [1] * len(xembedding[model_type].trailing_sep)
     )
 
 
@@ -138,43 +164,50 @@ def create_speaker_ids(
     entity_2_raw,
     speaker_tokenizer,
     old_behaviour,
+    model_type: str,
 ):
     input_speaker_ids = []
     current_speaker_id = 0
     speakers = []
     if old_behaviour:
-        for i in range(len(sequence)-2):
-            token=sequence[i]
-            arg1 = sequence[i+1]
-            arg2 = sequence[i+2]
+        for i in range(len(sequence) - 2):
+            token = sequence[i]
+            arg1 = sequence[i + 1]
+            arg2 = sequence[i + 2]
             # The original code would check speaker whenever Speaker X: or [unusedX] was detected
             # It produces unexpected behaviour with the input case Speaker X, Speaker Y:
             # where 2 Speakers are conversing.
             # The first speaker token is detected, and then the 2nd speaker token overrides the first speaker
             # we replicate this behaviour here for parity
-            if speaker_tokenizer.is_speaker(token) and (arg1==":" or arg1==","): #entity check
+            if speaker_tokenizer.is_speaker(token) and (
+                arg1 == ":" or arg1 == ","
+            ):  # entity check
                 current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
                 speakers.append(token)
-            elif token=='speaker' and arg1.isnumeric() and (arg2==":" or arg2=="," or arg2=="[SEP]"): #speaker check
+            elif (
+                token == "speaker"
+                and arg1.isnumeric()
+                and (arg2 == ":" or arg2 == "," or arg2 == "[SEP]")
+            ):  # speaker check
                 current_speaker_id = int(arg1)
                 speakers.append(token)
             input_speaker_ids.append(current_speaker_id)
         input_speaker_ids.append(current_speaker_id)
         input_speaker_ids.append(current_speaker_id)
         # [SEP] check is there as truncated speaker tokens are considered a change in speaker in the original code
-        '''if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]):
+        """if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]):
             current_speaker_id = speaker_tokenizer.convert_speaker_to_id(sequence[len(sequence)-2])
         elif (sequence[len(sequence)-2]=='speaker' and sequence[len(sequence)-1].isnumeric()):
             current_speaker_id = int(sequence[len(sequence)-1])
         input_speaker_ids.append(current_speaker_id)
         if speaker_tokenizer.is_speaker(sequence[len(sequence)-1]):
             current_speaker_id = speaker_tokenizer.convert_speaker_to_id(sequence[len(sequence)-1])
-        input_speaker_ids.append(current_speaker_id)'''
+        input_speaker_ids.append(current_speaker_id)"""
     else:
-        for i in range(len(sequence)-1):
-            token=sequence[i]
-            colon = sequence[i+1]
-            if speaker_tokenizer.is_speaker(token) and colon==":":
+        for i in range(len(sequence) - 1):
+            token = sequence[i]
+            colon = sequence[i + 1]
+            if speaker_tokenizer.is_speaker(token) and colon == ":":
                 current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
                 speakers.append(token)
             input_speaker_ids.append(current_speaker_id)
@@ -182,23 +215,27 @@ def create_speaker_ids(
 
     if old_behaviour:
         return (
-            [0]
+            [0] * len(xembedding[model_type].cls)
             + input_speaker_ids
-            + [0]
+            + [0] * len(xembedding[model_type].sep)
             + [
                 speaker_tokenizer.convert_speaker_to_id(entity_1_raw)
-                if speaker_tokenizer.is_speaker(entity_1_raw) #and entity_1_raw in speakers
+                if speaker_tokenizer.is_speaker(
+                    entity_1_raw
+                )  # and entity_1_raw in speakers
                 else 0
             ]
             * len(entity_1)
-            + [0]
+            + [0] * len(xembedding[model_type].sep)
             + [
                 speaker_tokenizer.convert_speaker_to_id(entity_2_raw)
-                if speaker_tokenizer.is_speaker(entity_2_raw) #and entity_2_raw in speakers
+                if speaker_tokenizer.is_speaker(
+                    entity_2_raw
+                )  # and entity_2_raw in speakers
                 else 0
             ]
             * len(entity_2)
-            + [0]
+            + [0] * len(xembedding[model_type].trailing_sep)
         )
     else:
         return (
@@ -212,44 +249,48 @@ def create_speaker_ids(
         )
 
 
-def create_mention_ids(sequence, entity_1, entity_2, speaker_tokenizer, old_behaviour):
+def create_mention_ids(
+    sequence, entity_1, entity_2, speaker_tokenizer, old_behaviour, model_type
+):
     input_mention_ids = []
     current_speaker_idx = 0
     if old_behaviour:
-        for i in range(len(sequence)-2):
-            token=sequence[i]
-            arg1 = sequence[i+1]
-            arg2 = sequence[i+2]
-            if speaker_tokenizer.is_speaker(token) and (arg1==":" or arg1==","):
+        for i in range(len(sequence) - 2):
+            token = sequence[i]
+            arg1 = sequence[i + 1]
+            arg2 = sequence[i + 2]
+            if speaker_tokenizer.is_speaker(token) and (arg1 == ":" or arg1 == ","):
                 current_speaker_idx += 1
-            elif token=='speaker' and arg1.isnumeric() and (arg2==":" or arg2==","):
+            elif (
+                token == "speaker" and arg1.isnumeric() and (arg2 == ":" or arg2 == ",")
+            ):
                 current_speaker_idx += 1
             input_mention_ids.append(current_speaker_idx)
         input_mention_ids.append(current_speaker_idx)
         input_mention_ids.append(current_speaker_idx)
-        '''if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]) or (sequence[len(sequence)-2]=='speaker' and sequence[len(sequence)-1].isnumeric()):
+        """if speaker_tokenizer.is_speaker(sequence[len(sequence)-2]) or (sequence[len(sequence)-2]=='speaker' and sequence[len(sequence)-1].isnumeric()):
             current_speaker_idx += 1
         input_mention_ids.append(current_speaker_idx)
         if speaker_tokenizer.is_speaker(sequence[len(sequence)-1]):
             current_speaker_idx += 1
-        input_mention_ids.append(current_speaker_idx)'''
+        input_mention_ids.append(current_speaker_idx)"""
     else:
-        for i in range(len(sequence)-1):
-            token=sequence[i]
-            colon = sequence[i+1]
-            if speaker_tokenizer.is_speaker(token) and colon==":":
+        for i in range(len(sequence) - 1):
+            token = sequence[i]
+            colon = sequence[i + 1]
+            if speaker_tokenizer.is_speaker(token) and colon == ":":
                 current_speaker_idx = speaker_tokenizer.convert_speaker_to_id(token)
             input_mention_ids.append(current_speaker_idx)
         input_mention_ids.append(current_speaker_idx)
     if old_behaviour:
         return (
-            [0]
+            [0] * len(xembedding[model_type].cls)
             + input_mention_ids
-            + [0]
+            + [0] * len(xembedding[model_type].sep)
             + [current_speaker_idx + 1] * len(entity_1)
-            + [0]
+            + [0] * len(xembedding[model_type].sep)
             + [current_speaker_idx + 2] * len(entity_2)
-            + [0]
+            + [0] * len(xembedding[model_type].trailing_sep)
         )
     else:
         return (
@@ -330,7 +371,7 @@ def pad_inputs(
     model_type,
 ):
     while len(input_ids) > max_seq_length:
-        pop_loc = len(sequence)
+        pop_loc = len(xembedding[model_type].cls) + len(sequence) - 1
         tokens.pop(pop_loc)
         input_ids.pop(pop_loc)
         input_mask.pop(pop_loc)
@@ -339,17 +380,32 @@ def pad_inputs(
         mention_ids.pop(pop_loc)
         sequence.pop()
     while len(input_ids) < max_seq_length:
-        tokens.append(xembedding[model_type].pad)
-        input_ids.append(speaker_tokenizer._convert_token_to_id(xembedding[model_type].pad[0]))
-        input_mask.append(0)
-        segment_ids.append(0)
-        speaker_ids.append(0)
-        mention_ids.append(0)
-    last_mid = mention_ids[len(sequence)]
-    for i in range(len(entity_1)):
-        mention_ids[len(sequence)+2+i] = last_mid+1
+        for token in xembedding[model_type].pad:
+            tokens.append(token)
+            input_ids.append(
+                speaker_tokenizer._convert_token_to_id(token)
+            )
+            input_mask.append(0)
+            segment_ids.append(0)
+            speaker_ids.append(0)
+            mention_ids.append(0)
+    last_mid = mention_ids[len(xembedding[model_type].cls)+len(sequence)-1]
+    for i in range(len(entity_1)):  # cls i am b [sep] q [sep] q [sep]
+        mention_ids[
+            len(xembedding[model_type].cls)
+            + len(sequence)
+            + len(xembedding[model_type].sep)
+            + i
+        ] = (last_mid + 1)
     for i in range(len(entity_2)):
-        mention_ids[len(sequence)+1+len(entity_1)+2+i] = last_mid+2
+        mention_ids[
+            len(xembedding[model_type].cls)
+            + len(sequence)
+            + len(xembedding[model_type].sep)
+            + len(entity_1)
+            + len(xembedding[model_type].sep)
+            + i
+        ] = (last_mid + 2)
 
 
 def build_speaker_turn_relations(speaker_id: List[int], mention_id: List[int]):
@@ -508,24 +564,38 @@ def create_graph(
     graph = dgl.heterograph(graph_data)
     return graph_data, graph
 
-def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length, return_labels=False, return_graph_data=False, model_type='bert'):
+
+def create_model_inputs(
+    sequence,
+    entity_1,
+    entity_2,
+    speaker_tokenizer,
+    inputs,
+    old_behaviour,
+    n_class,
+    max_seq_length,
+    return_labels=False,
+    return_graph_data=False,
+    model_type="bert",
+):
     tokens = create_tokens(sequence, entity_1, entity_2, model_type)
     input_ids = create_input_ids(tokens, speaker_tokenizer)
-    input_mask = create_input_mask(sequence, entity_1, entity_2)
-    segment_ids = create_segment_ids(sequence, entity_1, entity_2)
+    input_mask = create_input_mask(sequence, entity_1, entity_2, model_type)
+    segment_ids = create_segment_ids(sequence, entity_1, entity_2, model_type)
     speaker_ids = create_speaker_ids(
         sequence,
         entity_1,
         entity_2,
-        inputs["relation"]['entity_1'],
-        inputs["relation"]['entity_2'],
+        inputs["relation"]["entity_1"],
+        inputs["relation"]["entity_2"],
         speaker_tokenizer,
         old_behaviour,
+        model_type,
     )
     mention_ids = create_mention_ids(
-        sequence, entity_1, entity_2, speaker_tokenizer, old_behaviour
+        sequence, entity_1, entity_2, speaker_tokenizer, old_behaviour, model_type
     )
-    label_id = create_label_id(inputs["relation"]['rid'], n_class)
+    label_id = create_label_id(inputs["relation"]["rid"], n_class)
 
     pad_inputs(
         tokens,
@@ -539,7 +609,7 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
         sequence,
         entity_1,
         entity_2,
-        model_type
+        model_type,
     )
     turn_masks = create_turn_mask(np.array(mention_ids), old_behaviour)
 
@@ -564,32 +634,21 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
     if return_labels:
         if return_graph_data:
             return (
-                    [tokens],
-                    np.array([label_id]),
-                    np.array([input_ids]),
-                    np.array([input_mask]),
-                    np.array([segment_ids]),
-                    np.array([speaker_ids]),
-                    np.array([mention_ids]),
-                    np.array([turn_masks]),
-                    [graph],
-                    [graph_data]
-                )
+                [tokens],
+                np.array([label_id]),
+                np.array([input_ids]),
+                np.array([input_mask]),
+                np.array([segment_ids]),
+                np.array([speaker_ids]),
+                np.array([mention_ids]),
+                np.array([turn_masks]),
+                [graph],
+                [graph_data],
+            )
         else:
             return (
-                    [tokens],
-                    np.array([label_id]),
-                    np.array([input_ids]),
-                    np.array([input_mask]),
-                    np.array([segment_ids]),
-                    np.array([speaker_ids]),
-                    np.array([mention_ids]),
-                    np.array([turn_masks]),
-                    [graph],
-                )
-    else:
-        return (
                 [tokens],
+                np.array([label_id]),
                 np.array([input_ids]),
                 np.array([input_mask]),
                 np.array([segment_ids]),
@@ -598,6 +657,18 @@ def create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs,
                 np.array([turn_masks]),
                 [graph],
             )
+    else:
+        return (
+            [tokens],
+            np.array([input_ids]),
+            np.array([input_mask]),
+            np.array([segment_ids]),
+            np.array([speaker_ids]),
+            np.array([mention_ids]),
+            np.array([turn_masks]),
+            [graph],
+        )
+
 
 class ConversationalSequenceClassificationPipeline(Pipeline):
     r"""transformers pipeline for TUCORE-GCN. Generalizable to other models in theory
@@ -632,6 +703,7 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
     LABEL_17 34.35903269029420
     ```
     """
+
     def _sanitize_parameters(self, **kwargs):
         preprocess_kwargs = {}
         if "n_class" in kwargs:
@@ -642,13 +714,29 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
             preprocess_kwargs["model_type"] = kwargs["model_type"]
         return preprocess_kwargs, {}, {}
 
-    def preprocess(self, conversation: Conversation, n_class:int, max_seq_length:int, model_type:str):
+    def preprocess(
+        self,
+        conversation: Conversation,
+        n_class: int,
+        max_seq_length: int,
+        model_type: str,
+    ):
         speaker_tokenizer = self.tokenizer
         old_behaviour = True
         inputs, sequence, entity_1, entity_2 = create_inputs(
             conversation, speaker_tokenizer
         )
-        return create_model_inputs(sequence, entity_1, entity_2, speaker_tokenizer, inputs, old_behaviour, n_class, max_seq_length, model_type=model_type)
+        return create_model_inputs(
+            sequence,
+            entity_1,
+            entity_2,
+            speaker_tokenizer,
+            inputs,
+            old_behaviour,
+            n_class,
+            max_seq_length,
+            model_type=model_type,
+        )
 
     def _forward(self, model_inputs):  # model_inputs == {"model_input": model_input}
         (

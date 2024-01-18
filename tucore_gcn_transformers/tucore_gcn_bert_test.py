@@ -108,17 +108,17 @@ class TUCOREGCNBertTokenizerTest(unittest.TestCase):
         self.assertEqual(self.speaker_tokenizer.convert_speaker_to_id(token), expected)
 
 
-def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False):
+def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False, model_type='bert'):
     tokenizer = FullTokenizer(
         vocab_file="../pre-trained_model/BERT/vocab.txt", do_lower_case=True
     )
     old_dataset = TUCOREGCNDataset(
         "../datasets/DialogRE/",
-        f"../datasets/DialogRE/{split}_BERT.pkl",
+        f"../datasets/DialogRE/{split}_{str.upper(model_type)}.pkl",
         512,
         tokenizer,
         36,
-        "BERT",
+        str.upper(model_type),
     )
     old_loader = TUCOREGCNDataloader(
         dataset=old_dataset,
@@ -130,7 +130,7 @@ def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False):
     old_data = old_loader.dataset.data
     new_dataset = TUCOREGCNDialogREDataset()
     new_data_generator = new_dataset._generate_examples(
-        f"../datasets/DialogRE/{split}.json", split, 512, True, False
+        f"../datasets/DialogRE/{split}.json", split, 512, True, False, model_type
     )
     new_data = [data[1] for data in new_data_generator]
     # new_data = datasets.load_from_disk("../datasets/DialogRE/parity")[split if split!='dev' else "validation"]

@@ -18,10 +18,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import collections
+from dataclasses import dataclass
+import json
+import logging
 import re
 import unicodedata
 import six
-
 
 def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
   """Checks whether the casing config is consistent with the checkpoint name."""
@@ -390,3 +392,4 @@ def _is_punctuation(char):
   if cat.startswith("P"):
     return True
   return False
+
