@@ -1,5 +1,5 @@
 import os
-from tucore_gcn_bert_tokenizer import SpeakerBertTokenizer
+from tucore_gcn_bert_tokenizer import SpeakerBertTokenizer, SPEAKER_TOKENS, SpeakerRobertaTokenizer
 from tucore_gcn_bert_pipeline import create_model_inputs
 from tucore_gcn_bert_modelling import (
     TUCOREGCN_BertConfig,
@@ -35,7 +35,6 @@ import math
 import torch
 from torch.optim import Optimizer
 from torch.nn.utils import clip_grad_norm_
-
 from TUCOREGCN_BERT import TUCOREGCN_BERT as other_tucore
 
 """
@@ -243,11 +242,16 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
         self, filepath, split, max_seq_length, old_behaviour, shuffle, model_type
     ):
         r"""Yields examples."""
-        speaker_tokenizer: SpeakerBertTokenizer = SpeakerBertTokenizer.from_pretrained(
-            "bert-base-uncased"
-        )
-        # train has accents, while test and dev is already normalized.
-        speaker_tokenizer.basic_tokenizer.strip_accents = split == "train"
+        if model_type=='bert':
+            speaker_tokenizer: SpeakerBertTokenizer = SpeakerBertTokenizer.from_pretrained(
+                "bert-base-uncased"
+            )
+            # train has accents, while test and dev is already normalized.
+            speaker_tokenizer.basic_tokenizer.strip_accents = split == "train"
+        elif model_type=='roberta':
+            speaker_tokenizer = SpeakerRobertaTokenizer(vocab_file="../pre-trained_model/RoBERTa/vocab.json", merges_file="../pre-trained_model/RoBERTa/merges.txt")
+            #special_tokens_dict = {'additional_special_tokens': [SPEAKER_TOKENS.ENTITY_2, SPEAKER_TOKENS.ENTITY_1]}
+            #speaker_tokenizer.add_special_tokens(special_tokens_dict)
         with open(filepath, encoding="utf-8") as f:
             dataset = json.load(f)
             if split == "train" and shuffle:

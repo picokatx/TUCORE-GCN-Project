@@ -27,7 +27,6 @@ from transformers.testing_utils import (
     torch_device,
 )
 
-
 class ANY:
     def __init__(self, *_types):
         self._types = _types
@@ -108,17 +107,15 @@ class TUCOREGCNBertTokenizerTest(unittest.TestCase):
         self.assertEqual(self.speaker_tokenizer.convert_speaker_to_id(token), expected)
 
 
-def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False, model_type='bert'):
-    tokenizer = FullTokenizer(
-        vocab_file="../pre-trained_model/BERT/vocab.txt", do_lower_case=True
-    )
+def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False, model_type='BERT', tokenizer=None):
+    if tokenizer==None: return
     old_dataset = TUCOREGCNDataset(
         "../datasets/DialogRE/",
-        f"../datasets/DialogRE/{split}_{str.upper(model_type)}.pkl",
+        f"../datasets/DialogRE/{split}_{str.lower(model_type)}.pkl",
         512,
         tokenizer,
         36,
-        str.upper(model_type),
+        str.lower(model_type),
     )
     old_loader = TUCOREGCNDataloader(
         dataset=old_dataset,
@@ -130,7 +127,7 @@ def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False, model_
     old_data = old_loader.dataset.data
     new_dataset = TUCOREGCNDialogREDataset()
     new_data_generator = new_dataset._generate_examples(
-        f"../datasets/DialogRE/{split}.json", split, 512, True, False, model_type
+        f"../datasets/DialogRE/{split}.json", split, 512, True, False, str.lower(model_type)
     )
     new_data = [data[1] for data in new_data_generator]
     # new_data = datasets.load_from_disk("../datasets/DialogRE/parity")[split if split!='dev' else "validation"]
@@ -176,14 +173,12 @@ def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False, model_
                         print('Delete "{}" from position {}'.format(ord(s[-1]), i))
                         print('Add "{}" to position {}'.format(ord(s[-1]), i))
                     break
-            """
-            for i,s in enumerate(ndiff(b,a)):
+            """for i,s in enumerate(ndiff(b,a)):
                 if s[0]==' ': continue
                 elif s[0]=='-':
                     out.append(u'Delete "{}" from position {}'.format(ord(s[-1]),i))
                 elif s[0]=='+':
-                    out.append(u'Add "{}" to position {}'.format(ord(s[-1]),i))
-            """
+                    out.append(u'Add "{}" to position {}'.format(ord(s[-1]),i))"""
         if do_turn_mask_testing and len(np.unique((old_data[idx]["turn_mask"] == new_data[idx]["turn_masks"])))!=1:
             print(idx, "turn_masks")
         """

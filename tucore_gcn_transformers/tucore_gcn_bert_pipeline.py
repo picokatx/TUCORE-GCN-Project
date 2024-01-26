@@ -185,13 +185,45 @@ def create_speaker_ids(
                 current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
                 speakers.append(token)
             elif (
-                token == "speaker"
-                and arg1.isnumeric()
-                and (arg2 == ":" or arg2 == "," or arg2 == "[SEP]")
+                (token == "speaker")
+                and (arg1.isnumeric())
+                and (arg2 == ":" or arg2==",")
             ):  # speaker check
                 current_speaker_id = int(arg1)
                 speakers.append(token)
+            elif (
+                (token[1:]=="speaker") #roberta whitespace
+                and (arg1[1:].isnumeric())
+                and (arg2[1:] == ":" or arg2[1:]==",") # some entries are listed as speaker 1, speaker 2:
+            ):
+                current_speaker_id = int(arg1[1:])
+                speakers.append(token[1:])
             input_speaker_ids.append(current_speaker_id)
+        '''if model_type=='roberta':
+            for i in range(len(sequence) - 2):
+                token = sequence[i]
+                arg1 = sequence[i + 1]
+                arg2 = sequence[i + 2]
+                arg3 = sequence[i + 3]
+                # The original code would check speaker whenever Speaker X: or [unusedX] was detected
+                # It produces unexpected behaviour with the input case Speaker X, Speaker Y:
+                # where 2 Speakers are conversing.
+                # The first speaker token is detected, and then the 2nd speaker token overrides the first speaker
+                # we replicate this behaviour here for parity
+                if speaker_tokenizer.is_speaker(token) and (
+                    arg1 == ":" or arg1 == ","
+                ):  # entity checkspe aker Ġ2 :
+
+                    current_speaker_id = speaker_tokenizer.convert_speaker_to_id(token)
+                    speakers.append(token)
+                elif (
+                    (token[1:]=="speaker") #roberta whitespace
+                    and (arg1[1:].isnumeric())
+                    and (arg2[1:] == ":")
+                ):
+                    current_speaker_id = int(arg1[1:])
+                    speakers.append(token[1:])
+                input_speaker_ids.append(current_speaker_id)'''
         input_speaker_ids.append(current_speaker_id)
         input_speaker_ids.append(current_speaker_id)
         # [SEP] check is there as truncated speaker tokens are considered a change in speaker in the original code
@@ -262,7 +294,9 @@ def create_mention_ids(
             if speaker_tokenizer.is_speaker(token) and (arg1 == ":" or arg1 == ","):
                 current_speaker_idx += 1
             elif (
-                token == "speaker" and arg1.isnumeric() and (arg2 == ":" or arg2 == ",")
+                (token == "speaker" or token[1:]=="speaker") #roberta whitespace
+                and (arg1.isnumeric() or arg1[1:].isnumeric()) #roberta whitespace
+                and (arg2 == ":" or arg2[1:] == ":" or arg2 == "," or arg2[1:] == ",")
             ):
                 current_speaker_idx += 1
             input_mention_ids.append(current_speaker_idx)

@@ -52,6 +52,8 @@ while speaker_ids is a different parameter and has different token2id mappings
 
 from dataclasses import dataclass
 from transformers.models.bert.tokenization_bert import BertTokenizer
+from transformers.models.roberta.tokenization_roberta import RobertaTokenizer
+import regex as re
 
 
 @dataclass
@@ -289,3 +291,197 @@ class SpeakerBertTokenizer(BertTokenizer):
             return self.speaker2id[str(index)]
         else:
             return self.ids_to_tokens.get(index, self.unk_token)
+
+class SpeakerRobertaTokenizer(RobertaTokenizer):
+    r"""BERT Tokenizer with speaker-id mappings. Based on WordPiece.
+
+    Adapted from transformers library, transformers.models.bert.tokenization_bert.BertTokenizer
+    [https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/tokenization_bert.py]
+
+    This tokenizer inherits from [`PreTrainedTokenizer`] which contains most of the main methods. Users should refer to
+    this superclass for more information regarding those methods.
+
+    Added speaker2id to self.basic_tokenizer.never_split, preventing BertTokenizer's internal tokenizer from splitting speaker
+    tokens.
+
+    Modifications Summary:
+        Added speaker2id and id2speaker for mapping speaker tokens to the ids use in the official TUCORE-GCN repository.
+        Modified class methods _tokenize, _convert_token_to_id, _convert_id_to_token to treat speaker tokens as special tokens,
+        that cannot be split on and have predefined ids. Due to the original work defining only 9 Speaker tokens, and 2 speakers
+        of interest, we do the same here
+
+    Added/Modified Attributes:
+        speaker2id (:obj:`dict` of `str`,`int`):
+            speaker2id as specified by TUCORE-GCN
+        id2speaker (:obj:`dict` of `int`,`str`):
+            id2speaker as specified by TUCORE-GCN
+
+    Added/Modified Methods:
+        __init__, _tokenize, is_speaker, convert_speaker_to_id, _convert_token_to_id, _convert_id_to_token
+
+    Arguments:
+        vocab_file (`str`):
+            File containing the vocabulary.
+        do_lower_case (`bool`, *optional*, defaults to `True`):
+            Whether or not to lowercase the input when tokenizing.
+        do_basic_tokenize (`bool`, *optional*, defaults to `True`):
+            Whether or not to do basic tokenization before WordPiece.
+        never_split (`Iterable`, *optional*):
+            Collection of tokens which will never be split during tokenization. Only has an effect when `do_basic_tokenize=True`
+        unk_token (`str`, *optional*, defaults to `"[UNK]"`):
+            The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this token
+            instead.
+        sep_token (`str`, *optional*, defaults to `"[SEP]"`):
+            The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences for sequence
+            classification or for a text and a question for question answering. It is also used as the last token of a sequence
+            built with special tokens.
+        pad_token (`str`, *optional*, defaults to `"[PAD]"`):
+            The token used for padding, for example when batching sequences of different lengths.
+        cls_token (`str`, *optional*, defaults to `"[CLS]"`):
+            The classifier token which is used when doing sequence classification (classification of the whole sequence instead
+            of per-token classification). It is the first token of the sequence when built with special tokens.
+        mask_token (`str`, *optional*, defaults to `"[MASK]"`):
+            The token used for masking values. This is the token used when training this model with masked language modeling.
+            This is the token which the model will try to predict.
+        tokenize_chinese_chars (`bool`, *optional*, defaults to `True`):
+            Whether or not to tokenize Chinese characters. This should likely be deactivated for Japanese (see this
+            [issue](https://github.com/huggingface/transformers/issues/328)).
+        strip_accents (`bool`, *optional*):
+            Whether or not to strip all accents. If this option is not specified, then it will be determined by the value for
+            `lowercase` (as in the original BERT).
+
+    Usage:
+
+    ```python
+    >>> tokenizer = SpeakerBertTokenizer.from_pretrained('bert-base-uncased')
+    >>> tokenizer.tokenize("speaker_1: lorem, ipsum docet?")
+    ['{speaker_1}', 'lorem', ',', 'ipsum', 'docet', '?']
+    ```
+
+    NOTE: self.basic_tokenizer.never_split is deprecated, but still has functionality
+    WARNING: If a name is not tokenizable, it is replaced with [UNK]. This issue is present in the original TUCORE-GCN
+    repository, and it leads to inaccurate entity-turn edges being formed.
+    e.g. 
+    "x": "Speaker 1",
+    "y": "Pheebs",
+    "rid": [
+     30
+    ],
+    "pheebs" is not a registered token or partial token in vocab.txt. it will tokenize to [UNK] (id=100).
+    NOTE: The benefits offered by BertTokenizer mean some parity with the data processing methods used by TUCORE-GCN is lost. In
+    particular, words with accents are converted to their vocab.txt representations
+    """
+
+    speaker2id = {
+        SPEAKER_TOKENS.ENTITY_1: 11,
+        SPEAKER_TOKENS.ENTITY_2: 12,
+        SPEAKER_TOKENS.SPEAKER_1: 1,
+        SPEAKER_TOKENS.SPEAKER_2: 2,
+        SPEAKER_TOKENS.SPEAKER_3: 3,
+        SPEAKER_TOKENS.SPEAKER_4: 4,
+        SPEAKER_TOKENS.SPEAKER_5: 5,
+        SPEAKER_TOKENS.SPEAKER_6: 6,
+        SPEAKER_TOKENS.SPEAKER_7: 7,
+        SPEAKER_TOKENS.SPEAKER_8: 8,
+        SPEAKER_TOKENS.SPEAKER_9: 9,
+    }
+
+    id2speaker = {
+        "11": SPEAKER_TOKENS.ENTITY_1,
+        "12": SPEAKER_TOKENS.ENTITY_2,
+        "1": SPEAKER_TOKENS.SPEAKER_1,
+        "2": SPEAKER_TOKENS.SPEAKER_2,
+        "3": SPEAKER_TOKENS.SPEAKER_3,
+        "4": SPEAKER_TOKENS.SPEAKER_4,
+        "5": SPEAKER_TOKENS.SPEAKER_5,
+        "6": SPEAKER_TOKENS.SPEAKER_6,
+        "7": SPEAKER_TOKENS.SPEAKER_7,
+        "8": SPEAKER_TOKENS.SPEAKER_8,
+        "9": SPEAKER_TOKENS.SPEAKER_9,
+    }
+
+    def __init__(
+        self,
+        vocab_file,
+        merges_file,
+        errors="replace",
+        bos_token="<s>",
+        eos_token="</s>",
+        sep_token="</s>",
+        cls_token="<s>",
+        unk_token="<unk>",
+        pad_token="<pad>",
+        mask_token="<mask>",
+        add_prefix_space=False,
+        old_behaviour=True,
+        **kwargs,
+    ):
+        super().__init__(
+            vocab_file,
+            merges_file,
+            errors,
+            bos_token,
+            eos_token,
+            sep_token,
+            cls_token,
+            unk_token,
+            pad_token,
+            mask_token,
+            add_prefix_space,
+            **kwargs,
+        )
+        self.old_behaviour = old_behaviour
+        
+        self.pat = re.compile(r"\s{0,1}"+re.escape(SPEAKER_TOKENS.ENTITY_1)+r"|\s{0,1}"+re.escape(SPEAKER_TOKENS.ENTITY_2)+r"|"+self.pat.pattern)
+
+    def is_speaker(self, token):
+        r"""Check if the token matches a pre-defined speaker in speaker2id"""
+        # temporarily only matters for checking entity_1 and entity_2
+        return token in self.speaker2id
+    
+    def _tokenize(self, text):
+        """Tokenize a string."""
+        bpe_tokens = []
+        for token in re.findall(self.pat, text):
+            # Maps all our bytes to unicode strings, avoiding control tokens of the BPE (spaces in our case)
+            if token.strip()==SPEAKER_TOKENS.ENTITY_1 or token.strip()==SPEAKER_TOKENS.ENTITY_2:
+                bpe_tokens.append(token.strip())
+            else:
+                token = "".join(
+                    self.byte_encoder[b] for b in token.encode("utf-8")
+                )
+                bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(" "))
+        return bpe_tokens
+    
+    def convert_speaker_to_id(self, token):
+        r"""Convert token to a pre-defined speaker using speaker2id"""
+        # entity 1 and entity 2 are unused2 and unused3 in original code, using speaker ids 11 and 12. returns token as is if not speaker
+        if (not self.old_behaviour) or (token==SPEAKER_TOKENS.ENTITY_1 or token==SPEAKER_TOKENS.ENTITY_2):
+            return self.speaker2id[token]
+        else:
+            return token
+
+    def _convert_token_to_id(self, token):
+        r"""Converts a token (str) in an id using the vocab.
+
+        If the token maps to a valid speaker, it is converted to its respective speaker id instead.
+        """
+        if (self.old_behaviour and (token==SPEAKER_TOKENS.ENTITY_1 or token==SPEAKER_TOKENS.ENTITY_2)):
+            # The original paper uses ids 2 and 3 as entity tokens in input_ids
+            return 50265 if token==SPEAKER_TOKENS.ENTITY_1 else 50266
+        if (not self.old_behaviour and token in self.speaker2id):
+            return self.speaker2id[token]
+        else:
+            return self.encoder.get(token, self.encoder.get(self.unk_token))
+
+    def _convert_id_to_token(self, index):
+        r"""Converts an index (integer) in a token (str) using the vocab.
+
+        If the id maps to a speaker, it is converted to its respective speaker token instead.
+        """
+        if (self.old_behaviour and (index==50265 or index==50266)):
+            return SPEAKER_TOKENS.ENTITY_1 if index==50265 else SPEAKER_TOKENS.ENTITY_2
+        elif (not self.old_behaviour and str(index) in self.id2speaker):
+            return self.speaker2id[str(index)]
+        else:
+            return self.decoder.get(index, self.unk_token)
