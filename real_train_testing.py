@@ -258,7 +258,8 @@ def get_logits4eval_ERC(model, dataloader, savefile, resultsavefile, device, dat
                     f.write(" ")
 
 '''
-python real_train_testing.py --do_train --do_eval --encoder_type BERT  --data_dir datasets/DialogRE --data_name DialogRE   --vocab_file ./pre-trained_model/BERT/vocab.txt   --config_file ./pre-trained_model/BERT/bert_config.json   --init_checkpoint ./pre-trained_model/BERT/pytorch_model.bin   --max_seq_length 512   --train_batch_size 12   --learning_rate 3e-5   --num_train_epochs 1 --output_dir parity_data_models  --gradient_accumulation_steps 2
+python real_train_testing.py --do_train --do_eval --resume --resume_epoch 3 --encoder_type BERT  --data_dir datasets/DialogRE --data_name DialogRE   --vocab_file ./pre-trained_model/BERT/vocab.txt   --config_file ./pre-trained_model/BERT/bert_config.json   --init_checkpoint ./pre-trained_model/BERT/pytorch_model.bin   --max_seq_length 512   --train_batch_size 12   --learning_rate 3e-5   --num_train_epochs 20 --output_dir parity_data_models  --gradient_accumulation_steps 2
+python real_train_testing.py --do_train --do_eval --encoder_type BERT  --data_dir datasets/DialogRE --data_name DialogRE   --vocab_file ./pre-trained_model/BERT/vocab.txt   --config_file ./pre-trained_model/BERT/bert_config.json   --init_checkpoint ./pre-trained_model/BERT/pytorch_model.bin   --max_seq_length 512   --train_batch_size 6   --learning_rate 3e-5   --num_train_epochs 20 --output_dir original_model  --gradient_accumulation_steps 4  --eval_batch_size 16
 '''
 def main():
     parser = argparse.ArgumentParser()
@@ -376,6 +377,9 @@ def main():
                         default=False,
                         action='store_true',
                         help="Whether to resume the training.")
+    parser.add_argument("--resume_epoch",
+                        type=int, default=0,
+                        help="previous epoch")
     parser.add_argument("--f1eval",
                         default=True,
                         action='store_true',
@@ -507,7 +511,7 @@ def main():
         logger.info("  Batch size = %d", args.train_batch_size)
         logger.info("  Num steps = %d", num_train_steps)
 
-        for _ in trange(int(args.num_train_epochs), desc="Epoch"):
+        for epoch in tqdm(range(args.resume_epoch, int(args.num_train_epochs)), desc="Epoch"):
             model.train()
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
@@ -629,6 +633,7 @@ def main():
                     if eval_accuracy >= best_metric:
                         torch.save(model.state_dict(), os.path.join(args.output_dir, "model_best.pt"))
                         best_metric = eval_accuracy
+                torch.save(model.state_dict(), os.path.join(args.output_dir, f"{epoch}_{eval_f1}.pt"))
             else:
                 eval_loss = eval_loss / nb_eval_steps
 
@@ -651,9 +656,10 @@ def main():
                     if eval_f1 >= best_metric:
                         torch.save(model.state_dict(), os.path.join(args.output_dir, "model_best.pt"))
                         best_metric = eval_f1
+                torch.save(model.state_dict(), os.path.join(args.output_dir, f"{epoch}_{eval_f1}.pt"))
 
         model.load_state_dict(torch.load(os.path.join(args.output_dir, "model_best.pt")))
-        torch.save(model.state_dict(), os.path.join(args.output_dir, "model.pt"))
+        torch.save(model.state_dict(), os.path.join(args.output_dir, f"{epoch}_{eval_f1}.pt"))
 
     model.load_state_dict(torch.load(os.path.join(args.output_dir, "model.pt")))
 

@@ -1,0 +1,42 @@
+{
+  "alpha_pattern": {},
+  "auto_mapping": {
+    "base_model_class": "ViTForImageClassification",
+    "parent_library": "transformers.models.vit.modeling_vit"
+  },
+  "base_model_name_or_path": "google/vit-base-patch16-224-in21k",
+  "beta1": 0.85,
+  "beta2": 0.85,
+  "bias": "none",
+  "deltaT": 10,
+  "fan_in_fan_out": false,
+  "inference_mode": true,
+  "init_lora_weights": true,
+  "init_r": 12,
+  "layers_pattern": null,
+  "layers_to_transform": null,
+  "loftq_config": {},
+  "lora_alpha": 8,
+  "lora_dropout": 0.0,
+  "megatron_config": null,
+  "megatron_core": "megatron.core",
+  "modules_to_save": [
+    "classifier"
+  ],
+  "orth_reg_weight": 0.5,
+  "peft_type": "ADALORA",
+  "r": 8,
+  "rank_pattern": null,
+  "revision": null,
+  "target_modules": [
+    "query",
+    "value"
+  ],
+  "target_r": 8,
+  "task_type": null,
+  "tfinal": 1000,
+  "tinit": 200,
+  "total_step": null,
+  "use_dora": false,
+  "use_rslora": false
+}

@@ -47,6 +47,9 @@ python tucore_gcn_transformers/tucore_gcn_bert_train.py --do_train --do_eval --d
 seq_length of 512
 """
 
+def train():
+
+
 _CITATION = """\
 @inproceedings{yu2020dialogue,
   title={Dialogue-Based Relation Extraction},
@@ -163,6 +166,12 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
         self.max_seq_length = max_seq_length
         self.old_behaviour = old_behaviour
         self.model_type = model_type
+        if model_type=='bert':
+            self.speaker_tokenizer: SpeakerBertTokenizer = SpeakerBertTokenizer.from_pretrained(
+                "bert-base-uncased"
+            )
+        elif model_type=='roberta':
+            self.speaker_tokenizer = SpeakerRobertaTokenizer(vocab_file="../pre-trained_model/RoBERTa/vocab.json", merges_file="../pre-trained_model/RoBERTa/merges.txt")
 
     # override init to pass additional args
     def _info(self):
@@ -237,11 +246,92 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
             VerificationMode.NO_CHECKS,
             **prepare_splits_kwargs,
         )
+    def load_dataset(self, filepath, shuffle, split):
+        with open(filepath, encoding="utf-8") as f:
+            dataset = json.load(f)
+            if split == "train" and shuffle:
+                random.shuffle(dataset)
+            return dataset
+    def generate_example(self, idx, split, filepath=None, shuffle=None, dataset=None):
+        if dataset==None:
+            if filepath!=None and shuffle!=None:
+                dataset = self.load_dataset(filepath, shuffle, split)
+            else:
+                assert("Must provide either path to data or dataset object")
+        if self.model_type=='bert':
+            self.speaker_tokenizer.basic_tokenizer.strip_accents = True
+        dialog_idx = 0
+        overall_idx = 0
+        for _, relations in dataset:
+            if overall_idx+len(relations)<=idx:
+                overall_idx+=len(relations)
+                dialog_idx += 1
+            else: break
+        relation_idx = idx - overall_idx
+        entry = dataset[dialog_idx]
+        dialog_raw = entry[0]
+        relation_data = entry[1][relation_idx]
+        relation = [SpeakerRelation(relation_data["x"], relation_data["y"], relation_data["rid"])]
+        c = Conversation(dialog_raw, relation)
+        ret_dialog, ret_relation = c.build_input_with_relation(
+            relation[0],
+            self.speaker_tokenizer,
+            self.max_seq_length,
+            self.old_behaviour,
+        ).values()
+        if ret_dialog != "":
+            entry = {
+                "dialog": ret_dialog,
+                "relation": ret_relation,
+            }
+            (
+                tokens,
+                label_ids,
+                input_ids,
+                input_mask,
+                segment_ids,
+                speaker_ids,
+                mention_ids,
+                turn_masks,
+                graph,
+                graph_data,
+            ) = create_model_inputs(
+                self.speaker_tokenizer.tokenize(entry["dialog"]),
+                self.speaker_tokenizer.tokenize(entry["relation"]["entity_1"]),
+                self.speaker_tokenizer.tokenize(entry["relation"]["entity_2"]),
+                self.speaker_tokenizer,
+                entry,
+                self.old_behaviour,
+                36,
+                self.max_seq_length,
+                True,
+                True,
+                model_type=self.model_type,
+            )
+            return idx, {
+                "tokens": tokens[0],
+                "label_ids": label_ids[0],
+                "input_ids": input_ids[0],
+                "input_mask": input_mask[0],
+                "segment_ids": segment_ids[0],
+                "speaker_ids": speaker_ids[0],
+                "mention_ids": mention_ids[0],
+                "turn_masks": turn_masks[0],
+                "graph": pickle.dumps(graph),
+                "graph_data": pickle.dumps(graph_data),
+            }
 
     def _generate_examples(
         self, filepath, split, max_seq_length, old_behaviour, shuffle, model_type
     ):
         r"""Yields examples."""
+        dataset = self.load_dataset(filepath, shuffle, split)
+        overall_idx = 0
+        for _, relations in dataset:
+            overall_idx+=len(relations)
+        for i in tqdm(range(overall_idx)):
+            yield self.generate_example(idx=i, split=split, dataset=dataset, model_type=model_type)
+        '''
         if model_type=='bert':
             speaker_tokenizer: SpeakerBertTokenizer = SpeakerBertTokenizer.from_pretrained(
                 "bert-base-uncased"
@@ -321,7 +411,7 @@ class TUCOREGCNDialogREDataset(datasets.GeneratorBasedBuilder):
                             #    "graph_dialog": graph_data[0][('node', 'dialog', 'node')],
                             #    "graph_entity": graph_data[0][('node', 'entity', 'node')],
                         }
-
+        '''
 
 if __name__ == "__main__":
     # main()

@@ -9,6 +9,8 @@ import datasets
 import unittest
 from parameterized import parameterized
 import math
+import pickle
+import os
 from transformers.testing_utils import (
     TOKEN,
     USER,
@@ -37,6 +39,12 @@ class ANY:
     def __repr__(self):
         return f"ANY({', '.join(_type.__name__ for _type in self._types)})"
 
+def get_entry(idx, save_file):
+        if os.path.exists(save_file):
+            with open(file=save_file, mode='rb') as fr:
+                info = pickle.load(fr)
+                print('load preprocessed data from {}.'.format(save_file))
+                return info['data'][idx]
 
 class TUCOREGCNBertTokenizerTest(unittest.TestCase):
     speaker_tokenizer: SpeakerBertTokenizer = SpeakerBertTokenizer.from_pretrained(
@@ -106,6 +114,161 @@ class TUCOREGCNBertTokenizerTest(unittest.TestCase):
     def test_convert_speaker_to_id(self, token, expected):
         self.assertEqual(self.speaker_tokenizer.convert_speaker_to_id(token), expected)
 
+class DevEntryParityTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        for model_type in ['bert', 'roberta']:
+            setattr(cls, f"new_dataset_{model_type}", TUCOREGCNDialogREDataset(model_type=model_type))
+            for split in ['dev']:
+                if os.path.exists(f"test_data/{split}_{model_type}_testing.pkl"):
+                    with open(file=f"test_data/{split}_{model_type}_testing.pkl", mode='rb') as f:
+                        setattr(cls, f"old_dataset_{split}_{model_type}", pickle.load(f)['data'])
+
+    @parameterized.expand(
+        [
+            (idx, 'bert') for idx in range(0,1914)
+        ]
+    )
+    def test_all_entries(self, idx=0, model_type='bert'):
+        old = getattr(self, f"old_dataset_dev_{model_type}")[idx]
+        _, new = getattr(self, f"new_dataset_{model_type}").generate_example(idx=idx, split='dev', filepath=f"./test_data/dev.json", shuffle=False)
+        out = []
+        cmp_all = [
+            "label_ids",
+            "input_ids",
+            "input_mask",
+            "segment_ids",
+            "speaker_ids",
+            "mention_ids",
+        ]  # graphs excluded, turn mask checked separately
+        for cmp in cmp_all:
+            out.append(f"------------|{cmp}|------------")
+            a = "".join(
+                [
+                    chr(code)
+                    for code in (
+                        old[
+                            cmp
+                            if not (cmp == "mention_ids" or cmp == "turn_masks")
+                            else ("mention_id" if cmp == "mention_ids" else "turn_mask")
+                        ]
+                    )
+                ]
+            )
+            b = "".join([chr(code) for code in new[cmp]])
+            diff = []
+            for i, s in enumerate(ndiff(b, a)):
+                if s[0] == " ":
+                    continue
+                elif s[0] == "-" or s[0] == "+":
+                    diff.append((idx, cmp))
+            self.assertTrue(len(diff)==0)
+
+class TestEntryParityTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        for model_type in ['bert', 'roberta']:
+            setattr(cls, f"new_dataset_{model_type}", TUCOREGCNDialogREDataset(model_type=model_type))
+            for split in ['test']:
+                if os.path.exists(f"test_data/{split}_{model_type}_testing.pkl"):
+                    with open(file=f"test_data/{split}_{model_type}_testing.pkl", mode='rb') as f:
+                        setattr(cls, f"old_dataset_{split}_{model_type}", pickle.load(f)['data'])
+
+    @parameterized.expand(
+        [
+            (idx, 'bert') for idx in range(0,1862)
+        ]
+    )
+    def test_all_entries(self, idx=0, model_type='bert'):
+        old = getattr(self, f"old_dataset_test_{model_type}")[idx]
+        _, new = getattr(self, f"new_dataset_{model_type}").generate_example(idx=idx, split='test', filepath=f"./test_data/test.json", shuffle=False)
+        out = []
+        cmp_all = [
+            "label_ids",
+            "input_ids",
+            "input_mask",
+            "segment_ids",
+            "speaker_ids",
+            "mention_ids",
+        ]  # graphs excluded, turn mask checked separately
+        for cmp in cmp_all:
+            out.append(f"------------|{cmp}|------------")
+            a = "".join(
+                [
+                    chr(code)
+                    for code in (
+                        old[
+                            cmp
+                            if not (cmp == "mention_ids" or cmp == "turn_masks")
+                            else ("mention_id" if cmp == "mention_ids" else "turn_mask")
+                        ]
+                    )
+                ]
+            )
+            b = "".join([chr(code) for code in new[cmp]])
+            diff = []
+            for i, s in enumerate(ndiff(b, a)):
+                if s[0] == " ":
+                    continue
+                elif s[0] == "-" or s[0] == "+":
+                    diff.append((idx, cmp))
+            self.assertTrue(len(diff)==0, f"matching failed at {cmp}")
+
+class TrainEntryParityTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        for model_type in ['bert', 'roberta']:
+            setattr(cls, f"new_dataset_{model_type}", TUCOREGCNDialogREDataset(model_type=model_type))
+            for split in ['train']:
+                if os.path.exists(f"test_data/{split}_{model_type}_testing.pkl"):
+                    with open(file=f"test_data/{split}_{model_type}_testing.pkl", mode='rb') as f:
+                        setattr(cls, f"old_dataset_{split}_{model_type}", pickle.load(f)['data'])
+
+    @parameterized.expand(
+        [
+            (idx, 'bert') for idx in range(0,5997)
+        ]
+    )
+    def test_all_entries(self, idx=0, model_type='bert'):
+        old = getattr(self, f"old_dataset_train_{model_type}")[idx]
+        _, new = getattr(self, f"new_dataset_{model_type}").generate_example(idx=idx, split='train', filepath=f"./test_data/train.json", shuffle=False)
+        out = []
+        cmp_all = [
+            "label_ids",
+            "input_ids",
+            "input_mask",
+            "segment_ids",
+            "speaker_ids",
+            "mention_ids",
+        ]  # graphs excluded, turn mask checked separately
+        for cmp in cmp_all:
+            out.append(f"------------|{cmp}|------------")
+            a = "".join(
+                [
+                    chr(code)
+                    for code in (
+                        old[
+                            cmp
+                            if not (cmp == "mention_ids" or cmp == "turn_masks")
+                            else ("mention_id" if cmp == "mention_ids" else "turn_mask")
+                        ]
+                    )
+                ]
+            )
+            b = "".join([chr(code) for code in new[cmp]])
+            diff = []
+            for i, s in enumerate(ndiff(b, a)):
+                if s[0] == " ":
+                    continue
+                elif s[0] == "-" or s[0] == "+":
+                    diff.append((idx, cmp))
+            self.assertTrue(len(diff)==0, f"matching failed at {cmp}")
+
+
+
+
+
+
 
 def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False, model_type='BERT', tokenizer=None):
     if tokenizer==None: return
@@ -131,6 +294,7 @@ def input_parity(entry_idx=None, split="dev", do_turn_mask_testing=False, model_
     )
     new_data = [data[1] for data in new_data_generator]
     # new_data = datasets.load_from_disk("../datasets/DialogRE/parity")[split if split!='dev' else "validation"]
+    print("Now doing parity test")
     for idx in tqdm(
         range(
             0 if entry_idx == None else entry_idx,

@@ -11,5 +11,9 @@
 			}
 		]
 	},
-	"rewrap.wrappingColumn": 128
+	"rewrap.wrappingColumn": 128,
+	"files.associations": {
+		"*.embeddedhtml": "html",
+		"cassert": "cpp"
+	}
 }
