@@ -1,0 +1,47 @@
+{
+  "best_metric": 6.005477428436279,
+  "best_model_checkpoint": "peft_test\\checkpoint-8",
+  "epoch": 0.10738255033557047,
+  "eval_steps": 8,
+  "global_step": 8,
+  "is_hyper_param_search": false,
+  "is_local_process_zero": true,
+  "is_world_process_zero": true,
+  "log_history": [
+    {
+      "epoch": 0.05,
+      "grad_norm": 11.525238037109375,
+      "learning_rate": 0.005,
+      "loss": 2.8945,
+      "step": 4
+    },
+    {
+      "epoch": 0.11,
+      "grad_norm": 289.39129638671875,
+      "learning_rate": 0.005,
+      "loss": 14.0837,
+      "step": 8
+    },
+    {
+      "epoch": 0.11,
+      "eval_accuracy": 0.06040268456375839,
+      "eval_f1": 0.006969540526587505,
+      "eval_loss": 6.005477428436279,
+      "eval_precision": 0.003698123544719901,
+      "eval_recall": 0.06040268456375839,
+      "eval_runtime": 25.7512,
+      "eval_samples_per_second": 5.786,
+      "eval_steps_per_second": 0.738,
+      "step": 8
+    }
+  ],
+  "logging_steps": 4,
+  "max_steps": 370,
+  "num_input_tokens_seen": 0,
+  "num_train_epochs": 5,
+  "save_steps": 8,
+  "total_flos": 20113231183872.0,
+  "train_batch_size": 8,
+  "trial_name": null,
+  "trial_params": null
+}

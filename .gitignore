@@ -7,6 +7,8 @@
 *.pklv
 *.bak
 *.arrow
+*.whl
+*.pyc
 *logits_dev.txt
 *logits_devc.txt
 *logits_test.txt

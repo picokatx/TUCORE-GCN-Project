@@ -1,0 +1,82 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "soda",
+  "dataset_size": 1684345315,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/allenai/soda@fdc848ab0183208ea7808206c91c724414d0a071/train.parquet": {
+      "num_bytes": 688771672,
+      "checksum": null
+    },
+    "hf://datasets/allenai/soda@fdc848ab0183208ea7808206c91c724414d0a071/valid.parquet": {
+      "num_bytes": 82869716,
+      "checksum": null
+    },
+    "hf://datasets/allenai/soda@fdc848ab0183208ea7808206c91c724414d0a071/test.parquet": {
+      "num_bytes": 84204550,
+      "checksum": null
+    }
+  },
+  "download_size": 855845938,
+  "features": {
+    "labels": {
+      "names": [
+        "xIntent",
+        "xReact",
+        "xAttr",
+        "xEffect",
+        "xWant",
+        "xNeed"
+      ],
+      "id": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "_type": "ClassLabel"
+    },
+    "input_ids": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 2540191253,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 1349711411,
+      "num_examples": 1191582,
+      "shard_lengths": [
+        440000,
+        450000,
+        301582
+      ],
+      "dataset_name": "soda"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 165979469,
+      "num_examples": 146346,
+      "dataset_name": "soda"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 168654435,
+      "num_examples": 148968,
+      "dataset_name": "soda"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

@@ -259,7 +259,7 @@ def get_logits4eval_ERC(model, dataloader, savefile, resultsavefile, device, dat
 
 '''
 python real_train_testing.py --do_train --do_eval --resume --resume_epoch 3 --encoder_type BERT  --data_dir datasets/DialogRE --data_name DialogRE   --vocab_file ./pre-trained_model/BERT/vocab.txt   --config_file ./pre-trained_model/BERT/bert_config.json   --init_checkpoint ./pre-trained_model/BERT/pytorch_model.bin   --max_seq_length 512   --train_batch_size 12   --learning_rate 3e-5   --num_train_epochs 20 --output_dir parity_data_models  --gradient_accumulation_steps 2
-python real_train_testing.py --do_train --do_eval --encoder_type BERT  --data_dir datasets/DialogRE --data_name DialogRE   --vocab_file ./pre-trained_model/BERT/vocab.txt   --config_file ./pre-trained_model/BERT/bert_config.json   --init_checkpoint ./pre-trained_model/BERT/pytorch_model.bin   --max_seq_length 512   --train_batch_size 6   --learning_rate 3e-5   --num_train_epochs 20 --output_dir original_model  --gradient_accumulation_steps 4  --eval_batch_size 16
+python real_train_testing.py --do_train --do_eval --encoder_type BERT  --data_dir datasets/DialogRE --data_name DialogRE   --vocab_file ./pre-trained_model/BERT/vocab.txt   --config_file ./pre-trained_model/BERT/bert_config.json   --init_checkpoint ./pre-trained_model/BERT/pytorch_model.bin   --max_seq_length 512   --train_batch_size 24   --learning_rate 3e-5   --num_train_epochs 20 --output_dir original_model  --gradient_accumulation_steps 1  --eval_batch_size 24
 '''
 def main():
     parser = argparse.ArgumentParser()
@@ -416,6 +416,7 @@ def main():
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+
     if n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
     if not args.do_train and not args.do_eval:
@@ -456,20 +457,23 @@ def main():
     num_train_steps = int(
             len(train_set) / args.train_batch_size / args.gradient_accumulation_steps * args.num_train_epochs)
     
-    if args.encoder_type == "BERT":
-        model = TUCOREGCN_BERT(config, n_class)
-        if args.init_checkpoint is not None:
-            model.bert.load_state_dict(torch.load(args.init_checkpoint, map_location='cpu'), strict=False)
-    else:
-        model = TUCOREGCN_RoBERTa(config, n_class)
-        if args.init_checkpoint is not None:
-            model.load_state_dict(torch.load(args.init_checkpoint, map_location='cpu'), strict=False)
-        model.roberta.resize_token_embeddings(len(tokenizer))
+    # if args.encoder_type == "BERT":
+    #     model = TUCOREGCN_BERT(config, n_class)
+    #     if args.init_checkpoint is not None:
+    #         model.bert.load_state_dict(torch.load(args.init_checkpoint, map_location='cpu'), strict=False)
+    # else:
+    #     model = TUCOREGCN_RoBERTa(config, n_class)
+    #     if args.init_checkpoint is not None:
+    #         model.load_state_dict(torch.load(args.init_checkpoint, map_location='cpu'), strict=False)
+    #     model.roberta.resize_token_embeddings(len(tokenizer))
     
+    from tucore_gcn_transformers.bertflashtest2 import TUCOREGCN_BertForSequenceClassification, TUCOREGCN_BertConfig
+    cfg = TUCOREGCN_BertConfig.from_json_file("./models/BERT/tucoregcn_bert_mlc.json")
+    model = TUCOREGCN_BertForSequenceClassification.from_pretrained("bert-base-uncased", config=cfg)
     if args.fp16:
         model.half()
     model.to(device)
-
+    
     if args.local_rank != -1:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank],
                                                           output_device=args.local_rank)
@@ -485,17 +489,24 @@ def main():
     else:
         param_optimizer = list(model.named_parameters())
 
+    # from galore_torch import GaLoreAdamW8bit
+    # from transformers import get_constant_schedule_with_warmup
+    # # define param groups as galore_params and non_galore_params
+    # param_groups = [
+    #     {'params': [p for n,p in param_optimizer], 'weight_decay_rate': 0.0, 'rank': 128, 'update_proj_gap': 200, 'scale': 0.25, 'proj_type': 'std'}
+    # ]
+    # print([p.device for n,p in param_optimizer])
+    # optimizer = GaLoreAdamW8bit(param_groups, lr=args.learning_rate)
+    # scheduler = get_constant_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=np.floor(num_train_steps*args.warmup_proportion))
     no_decay = ['bias', 'gamma', 'beta']
     optimizer_grouped_parameters = [
         {'params': [p for n, p in param_optimizer if n not in no_decay], 'weight_decay_rate': 0.01},
         {'params': [p for n, p in param_optimizer if n in no_decay], 'weight_decay_rate': 0.0}
         ]
-
     optimizer = BERTAdam(optimizer_grouped_parameters,
                          lr=args.learning_rate,
                          warmup=args.warmup_proportion,
                          t_total=num_train_steps)
-
     global_step = 0
 
     if args.resume:
@@ -516,21 +527,22 @@ def main():
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
             
-            for step in tqdm(range(0, train_n_batches), desc="Train Iteration"):
+            for step in tqdm(range(0, train_n_batches), desc="Train Iteration"): #train_n_batches
                 #should look into if sharding with inequal batch size is causing the accuracy to suck
                 shard = train_set.shard(num_shards=train_n_batches, index=step)
-                label_ids = torch.LongTensor(shard["label_ids"]).contiguous().to(device).float()
+                label_ids = torch.LongTensor(shard["label_ids"]).contiguous().float().to(device)
                 input_ids = torch.LongTensor(shard["input_ids"]).contiguous().to(device)
                 segment_ids = torch.LongTensor(shard["segment_ids"]).contiguous().to(device)
                 input_masks = torch.LongTensor(shard["input_mask"]).contiguous().to(device)
                 mention_ids = torch.LongTensor(shard["mention_ids"]).contiguous().to(device)
                 speaker_ids = torch.LongTensor(shard["speaker_ids"]).contiguous().to(device)
-                turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(device)
+                turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(torch.float16).to(device)
                 # forgot to flatten the list 1
                 graphs = [pickle.loads(g)[0].to(device) for g in shard["graph"]]
                 #print(shard["tokens"])
                 #print(graphs)
-                loss, _ = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_ids=mention_ids, labels=label_ids, turn_mask=turn_mask)
+                out = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_ids=mention_ids, labels=label_ids, turn_mask=turn_mask)
+                loss = out.loss
                 if n_gpu > 1:
                     loss = loss.mean()
                 if args.fp16 and args.loss_scale != 1.0:
@@ -556,9 +568,11 @@ def main():
                             model.zero_grad()
                             continue
                         optimizer.step()
+                        # scheduler.step()
                         copy_optimizer_params_to_model(model.named_parameters(), param_optimizer)
                     else:
                         optimizer.step()
+                        # scheduler.step()
                     model.zero_grad()
                     global_step += 1
                     #break
@@ -567,21 +581,21 @@ def main():
             nb_eval_steps, nb_eval_examples = 0, 0
             logits_all = []
             labels_all = []
-            for step in tqdm(range(0, test_n_batches), desc="Test Iteration"):
+            for step in tqdm(range(0, test_n_batches), desc="Test Iteration"): #test_n_batches
                 shard = test_set.shard(num_shards=test_n_batches, index=step)
-                label_ids = torch.LongTensor(shard["label_ids"]).contiguous().to(device).float()
+                label_ids = torch.LongTensor(shard["label_ids"]).contiguous().float().to(device)
                 input_ids = torch.LongTensor(shard["input_ids"]).contiguous().to(device)
                 segment_ids = torch.LongTensor(shard["segment_ids"]).contiguous().to(device)
                 input_masks = torch.LongTensor(shard["input_mask"]).contiguous().to(device)
                 mention_ids = torch.LongTensor(shard["mention_ids"]).contiguous().to(device)
                 speaker_ids = torch.LongTensor(shard["speaker_ids"]).contiguous().to(device)
-                turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(device)
+                turn_mask = torch.LongTensor(shard["turn_masks"]).contiguous().to(torch.float16).to(device)
                 # forgot to flatten the list 1
                 graphs = [pickle.loads(g)[0].to(device) for g in shard["graph"]]
 
                 with torch.no_grad():
-                    tmp_eval_loss, logits = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_ids=mention_ids, labels=label_ids, turn_mask=turn_mask)
-
+                    out = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_masks, speaker_ids=speaker_ids, graphs=graphs, mention_ids=mention_ids, labels=label_ids, turn_mask=turn_mask)
+                    tmp_eval_loss, logits = out.loss, out.logits
                 logits = logits.detach().cpu().numpy()
                 label_ids = label_ids.to('cpu').numpy()
                 for i in range(len(logits)):

@@ -1,0 +1,47 @@
+2024-03-15 12:22:26,191 INFO    StreamThr :17508 [internal.py:wandb_internal():86] W&B internal server running at pid: 17508, started at: 2024-03-15 12:22:26.190529
+2024-03-15 12:22:26,192 DEBUG   HandlerThread:17508 [handler.py:handle_request():146] handle_request: status
+2024-03-15 12:22:26,240 INFO    WriterThread:17508 [datastore.py:open_for_write():87] open: d:\projects\affect\TUCORE-GCN\wandb\run-20240315_122226-73mx7d3y\run-73mx7d3y.wandb
+2024-03-15 12:22:26,241 DEBUG   SenderThread:17508 [sender.py:send():378] send: header
+2024-03-15 12:22:26,288 DEBUG   SenderThread:17508 [sender.py:send():378] send: run
+2024-03-15 12:22:27,029 INFO    SenderThread:17508 [dir_watcher.py:__init__():211] watching files in: d:\projects\affect\TUCORE-GCN\wandb\run-20240315_122226-73mx7d3y\files
+2024-03-15 12:22:27,029 INFO    SenderThread:17508 [sender.py:_start_run_threads():1099] run started: 73mx7d3y with start time 1710476546.192543
+2024-03-15 12:22:27,036 DEBUG   HandlerThread:17508 [handler.py:handle_request():146] handle_request: check_version
+2024-03-15 12:22:27,036 DEBUG   SenderThread:17508 [sender.py:send_request():405] send_request: check_version
+2024-03-15 12:22:27,312 DEBUG   HandlerThread:17508 [handler.py:handle_request():146] handle_request: run_start
+2024-03-15 12:22:27,350 DEBUG   HandlerThread:17508 [system_info.py:__init__():26] System info init
+2024-03-15 12:22:27,350 DEBUG   HandlerThread:17508 [system_info.py:__init__():41] System info init done
+2024-03-15 12:22:27,350 INFO    HandlerThread:17508 [system_monitor.py:start():194] Starting system monitor
+2024-03-15 12:22:27,351 INFO    SystemMonitor:17508 [system_monitor.py:_start():158] Starting system asset monitoring threads
+2024-03-15 12:22:27,351 INFO    HandlerThread:17508 [system_monitor.py:probe():214] Collecting system info
+2024-03-15 12:22:27,357 INFO    SystemMonitor:17508 [interfaces.py:start():190] Started cpu monitoring
+2024-03-15 12:22:27,357 INFO    SystemMonitor:17508 [interfaces.py:start():190] Started disk monitoring
+2024-03-15 12:22:27,358 INFO    SystemMonitor:17508 [interfaces.py:start():190] Started gpu monitoring
+2024-03-15 12:22:27,366 INFO    SystemMonitor:17508 [interfaces.py:start():190] Started memory monitoring
+2024-03-15 12:22:27,374 INFO    SystemMonitor:17508 [interfaces.py:start():190] Started network monitoring
+2024-03-15 12:22:27,377 DEBUG   HandlerThread:17508 [system_info.py:probe():150] Probing system
+2024-03-15 12:22:27,378 DEBUG   HandlerThread:17508 [system_info.py:_probe_git():135] Probing git
+2024-03-15 12:22:27,468 DEBUG   HandlerThread:17508 [system_info.py:_probe_git():143] Probing git done
+2024-03-15 12:22:27,468 DEBUG   HandlerThread:17508 [system_info.py:probe():198] Probing system done
+2024-03-15 12:22:27,468 DEBUG   HandlerThread:17508 [system_monitor.py:probe():223] {'os': 'Windows-10-10.0.22631-SP0', 'python': '3.11.6', 'heartbeatAt': '2024-03-15T04:22:27.377568', 'startedAt': '2024-03-15T04:22:26.042629', 'docker': None, 'cuda': None, 'args': (), 'state': 'running', 'program': 'soda_lora.ipynb', 'codePathLocal': 'soda_lora.ipynb', 'git': {'remote': 'https://github.com/picokatx/cs5131project.git', 'commit': '0d3b08a09de312e27ef5afbd783fe86911db90cb'}, 'email': 'picokatx@gmail.com', 'root': 'D:/projects/affect/TUCORE-GCN', 'host': 'pico-wafer', 'username': 'picokatx', 'executable': 'd:\\projects\\affect\\TUCORE-GCN\\.venv\\Scripts\\python.exe', 'cpu_count': 8, 'cpu_count_logical': 16, 'cpu_freq': {'current': 2000.0, 'min': 0.0, 'max': 2000.0}, 'cpu_freq_per_core': [{'current': 2000.0, 'min': 0.0, 'max': 2000.0}], 'disk': {'/': {'total': 931.474609375, 'used': 675.2529296875}}, 'gpu': 'NVIDIA GeForce RTX 3050 Laptop GPU', 'gpu_count': 1, 'gpu_devices': [{'name': 'NVIDIA GeForce RTX 3050 Laptop GPU', 'memory_total': 4294967296}], 'memory': {'total': 15.355525970458984}}
+2024-03-15 12:22:27,469 INFO    HandlerThread:17508 [system_monitor.py:probe():224] Finished collecting system info
+2024-03-15 12:22:27,469 INFO    HandlerThread:17508 [system_monitor.py:probe():227] Publishing system info
+2024-03-15 12:22:27,469 INFO    HandlerThread:17508 [system_monitor.py:probe():229] Finished publishing system info
+2024-03-15 12:22:27,480 DEBUG   SenderThread:17508 [sender.py:send():378] send: files
+2024-03-15 12:22:27,480 INFO    SenderThread:17508 [sender.py:_save_file():1365] saving file wandb-metadata.json with policy now
+2024-03-15 12:22:27,625 DEBUG   HandlerThread:17508 [handler.py:handle_request():146] handle_request: python_packages
+2024-03-15 12:22:27,625 DEBUG   SenderThread:17508 [sender.py:send_request():405] send_request: python_packages
+2024-03-15 12:22:27,626 DEBUG   HandlerThread:17508 [handler.py:handle_request():146] handle_request: stop_status
+2024-03-15 12:22:27,626 DEBUG   SenderThread:17508 [sender.py:send_request():405] send_request: stop_status
+2024-03-15 12:22:27,627 DEBUG   HandlerThread:17508 [handler.py:handle_request():146] handle_request: internal_messages
+2024-03-15 12:22:28,042 INFO    Thread-16 :17508 [dir_watcher.py:_on_file_created():271] file/dir created: d:\projects\affect\TUCORE-GCN\wandb\run-20240315_122226-73mx7d3y\files\wandb-metadata.json
+2024-03-15 12:22:28,042 INFO    Thread-16 :17508 [dir_watcher.py:_on_file_created():271] file/dir created: d:\projects\affect\TUCORE-GCN\wandb\run-20240315_122226-73mx7d3y\files\requirements.txt
+2024-03-15 12:22:28,158 DEBUG   SenderThread:17508 [sender.py:send():378] send: telemetry
+2024-03-15 12:22:28,159 DEBUG   SenderThread:17508 [sender.py:send():378] send: config
+2024-03-15 12:22:28,159 DEBUG   SenderThread:17508 [sender.py:send():378] send: metric
+2024-03-15 12:22:28,159 DEBUG   SenderThread:17508 [sender.py:send():378] send: telemetry
+2024-03-15 12:22:28,160 DEBUG   SenderThread:17508 [sender.py:send():378] send: metric
+2024-03-15 12:22:28,160 WARNING SenderThread:17508 [sender.py:send_metric():1316] Seen metric with glob (shouldn't happen)
+2024-03-15 12:22:28,160 DEBUG   SenderThread:17508 [sender.py:send():378] send: telemetry
+2024-03-15 12:22:28,550 INFO    wandb-upload_0:17508 [upload_job.py:push():131] Uploaded file C:\Users\picokatx\AppData\Local\Temp\tmpjlhq2m6lwandb\lqq8ou7b-wandb-metadata.json
+2024-03-15 12:22:31,886 DEBUG   HandlerThread:17508 [handler.py:handle_request():146] handle_request: status_report
+2024-03-15 12:22:32,070 INFO    Thread-16 :17508 [dir_watcher.py:_on_file_created():271] file/dir created: d:\projects\affect\TUCORE-GCN\wandb\run-20240315_122226-73mx7d3y\files\output.log

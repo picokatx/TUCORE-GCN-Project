@@ -43,6 +43,7 @@
 # SOFTWARE.
 
 import numpy as np
+import torch
 
 from transformers import Pipeline
 from tucore_gcn_bert_tokenizer import (
@@ -61,7 +62,6 @@ import dgl
 import torch.nn.functional as F
 from torch import LongTensor
 from dataclasses import dataclass
-
 
 class GenericSpecialTokenRepo(object):
     cls: List[str]
@@ -101,6 +101,9 @@ xembedding = {
     "roberta": GenericSpecialTokenRepo(
         ["<s>"], ["<pad>"], ["<unk>"], ["<mask>"], ["</s>", "</s>"], ["</s>"]
     ),
+    "llama": GenericSpecialTokenRepo(
+        ["<s>"], ["<pad>"], ["<unk>"], ["<mask>"], ["</s>"], ["</s>"]
+    )
 }
 
 
@@ -192,7 +195,7 @@ def create_speaker_ids(
                 current_speaker_id = int(arg1)
                 speakers.append(token)
             elif (
-                (token[1:]=="speaker") #roberta whitespace
+                (token[1:]=="speaker") # roberta whitespace
                 and (arg1[1:].isnumeric())
                 and (arg2[1:] == ":" or arg2[1:]==",") # some entries are listed as speaker 1, speaker 2:
             ):
@@ -784,14 +787,14 @@ class ConversationalSequenceClassificationPipeline(Pipeline):
             graph,
         ) = model_inputs
         output = self.model(
-            LongTensor(input_ids).to(self.device),
-            LongTensor(segment_ids).to(self.device),
-            LongTensor(input_mask).to(self.device),
-            LongTensor(speaker_ids).to(self.device),
+            torch.tensor(input_ids, dtype=torch.long).to(self.device),
+            torch.tensor(segment_ids, dtype=torch.long).to(self.device),
+            torch.tensor(input_mask, dtype=torch.long).to(self.device),
+            torch.tensor(speaker_ids, dtype=torch.long).to(self.device),
             [g.to(self.device) for g in graph],
-            LongTensor(mention_ids).to(self.device),
+            torch.tensor(mention_ids, dtype=torch.long).to(self.device),
             None,
-            LongTensor(turn_masks).to(self.device),
+            torch.tensor(turn_masks, dtype=torch.long).to(self.device),
         )
         output
         return output

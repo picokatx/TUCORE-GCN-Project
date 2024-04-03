@@ -1,0 +1,16 @@
+{
+  "_data_files": [
+    {
+      "filename": "data-00000-of-00001.arrow"
+    }
+  ],
+  "_fingerprint": "ba3f1d66b2a28f26",
+  "_format_columns": [
+    "input_ids",
+    "labels"
+  ],
+  "_format_kwargs": {},
+  "_format_type": null,
+  "_output_all_columns": false,
+  "_split": "validation"
+}

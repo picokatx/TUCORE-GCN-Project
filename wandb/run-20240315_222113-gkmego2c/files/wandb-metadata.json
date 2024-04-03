@@ -1,0 +1,52 @@
+{
+    "os": "Windows-10-10.0.22631-SP0",
+    "python": "3.11.6",
+    "heartbeatAt": "2024-03-15T14:21:14.397818",
+    "startedAt": "2024-03-15T14:21:13.023839",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "soda_lora.ipynb",
+    "codePathLocal": "soda_lora.ipynb",
+    "git": {
+        "remote": "https://github.com/picokatx/cs5131project.git",
+        "commit": "0d3b08a09de312e27ef5afbd783fe86911db90cb"
+    },
+    "email": "picokatx@gmail.com",
+    "root": "D:/projects/affect/TUCORE-GCN",
+    "host": "pico-wafer",
+    "username": "picokatx",
+    "executable": "d:\\projects\\affect\\TUCORE-GCN\\.venv\\Scripts\\python.exe",
+    "cpu_count": 8,
+    "cpu_count_logical": 16,
+    "cpu_freq": {
+        "current": 2000.0,
+        "min": 0.0,
+        "max": 2000.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2000.0,
+            "min": 0.0,
+            "max": 2000.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 931.474609375,
+            "used": 675.36328125
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+            "memory_total": 4294967296
+        }
+    ],
+    "memory": {
+        "total": 15.355525970458984
+    }
+}

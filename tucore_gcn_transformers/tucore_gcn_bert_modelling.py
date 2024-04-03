@@ -65,6 +65,8 @@ import os
 import warnings
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
+from einops import rearrange, repeat
+from functools import partial
 
 
 import torch
@@ -97,6 +99,7 @@ from transformers.utils import (
     ModelOutput,
     add_code_sample_docstrings,
     add_start_docstrings,
+    is_flash_attn_2_available,
     add_start_docstrings_to_model_forward,
     logging,
     replace_return_docstrings,
@@ -106,6 +109,20 @@ from transformers.models.bert.configuration_bert import BertConfig
 import dgl
 import dgl.nn.pytorch as dglnn
 
+if is_flash_attn_2_available():
+    os.add_dll_directory(os.path.join(os.environ['CUDA_PATH'], 'bin'))
+    from flash_attn import (
+        flash_attn_kvpacked_func,
+        flash_attn_qkvpacked_func,
+        flash_attn_varlen_kvpacked_func,
+        flash_attn_varlen_qkvpacked_func,
+        flash_attn_with_kvcache,
+    )
+    from flash_attn.ops.fused_dense import ColumnParallelLinear, FusedDense, RowParallelLinear
+    from flash_attn import flash_attn_func, flash_attn_varlen_func
+    # from flash_attn.layers.rotary import RotaryEmbedding # Needs removing of triton
+    from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input  # noqa
+    from flash_attn.modules.mha import CrossAttention, SelfAttention, LinearResidual, FlashSelfAttention, FlashCrossAttention, get_alibi_slopes, _update_kv_cache
 logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "bert-base-uncased"
@@ -535,6 +552,9 @@ class BertSelfAttention(nn.Module):
             # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_layer, value_layer)
+        r"""
+        Flash attention should begin here
+        """
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
@@ -610,6 +630,9 @@ class BertSelfAttention(nn.Module):
 
         if self.is_decoder:
             outputs = outputs + (past_key_value,)
+        r"""
+        Flash attention should end here
+        """
         return outputs
 
 
@@ -1403,7 +1426,7 @@ class ScaledDotProductAttention(nn.Module):
 
     def forward(self, q, k, v, mask=None):
         attn = torch.matmul(q / self.temperature, k.transpose(2, 3))
-
+        print(attn.shape)
         if mask is not None:
             attn = attn.masked_fill(mask == 0, -1e9)
 
@@ -1450,7 +1473,6 @@ class MultiHeadAttention(nn.Module):
 
         if mask is not None:
             mask = mask.unsqueeze(1)  # For head axis broadcasting.
-
         q, attn = self.attention(q, k, v, mask=mask)
 
         # Transpose to move the head dimension back: b x lq x n x dv
